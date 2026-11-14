@@ -94,7 +94,7 @@
 </style>
 </head>
 <body>
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.38 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.39 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -1219,9 +1219,11 @@ function calc(){
         if(t.oei){ const ok2=gw<=t.max+0.5; sub=`${isFinite(t.gw)?'hover ceiling':'not limiting'} · +${t.plus} °C sheet<br>margin ${(ok2?'+':'')+fmt(Math.floor(t.max)-gw)} lb`; }
         else if(t.plus) sub=sub.replace('<br>',` · plus +${t.plus} °C<br>`);
         if(t.ext){
-          sub=`internal${t.plus?' · plus +'+t.plus+' °C':''} · margin ${(ok?'+':'')+fmt(Math.floor(t.max)-gw)} lb`+(t.area&&ok?` · Area ${t.area}`:'');
-          sub+=`<div class="ext"><b>${fmt(Math.floor(t.ext))} lb</b> external (cargo hook)<br>margin ${(okExt?'+':'')+fmt(Math.floor(t.ext)-gw)} lb · Area B wind above 7,500${t.extPlus?' · min-spec chart':''}</div>`;
-          if(!ok&&okExt) cls='warn';
+          // large figure = external (cargo hook) limit; smaller line = internal limit
+          v=fmt(Math.floor(t.ext))+' lb';
+          sub=`external (cargo hook)${t.extPlus?' · min-spec chart':''} · margin ${(okExt?'+':'')+fmt(Math.floor(t.ext)-gw)} lb · Area B wind above 7,500`;
+          sub+=`<div class="ext"><b>${fmt(Math.floor(t.max))} lb</b> internal${t.plus?' · plus +'+t.plus+' °C':''}<br>margin ${(ok?'+':'')+fmt(Math.floor(t.max)-gw)} lb${t.area&&ok?` · Area ${t.area}`:''}</div>`;
+          cls=okExt?'ok':'bad';
         }
       } else sub={heater:'heater ON: 20 °C max',oatmax:'above max OAT',high:'above chart',out:'outside chart',noplus:'no plus-engine credit here (crosshatched)'}[t.status]||'outside chart';
       if(t.noplus) sub+='<br>no plus credit (crosshatched) — min spec';
