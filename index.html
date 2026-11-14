@@ -62,6 +62,7 @@
   @media (max-width:600px){.pacgrid{grid-template-columns:1fr}}
   .pluscard{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px}
   .btn{font-size:15px;padding:9px 12px;border-radius:8px;border:1px solid #0a6ad1;background:#eef5fd;color:#0a6ad1;font-weight:600;width:100%}
+  input.clamped{outline:2px solid #e8a33d;background:#fff6e5}
   h3.sub{font-size:13px;margin:16px 0 6px;color:var(--ink);font-weight:650}
   .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.pair .chart{margin-top:0}
   @media (max-width:600px){.pair{grid-template-columns:1fr}}
@@ -94,22 +95,22 @@
 </style>
 </head>
 <body>
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.39 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.40 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
   <h2>Conditions <span id="condSum"></span></h2>
   <div class="grid6">
-    <label class="f">Elevation (ft)<input id="elev" type="number" inputmode="decimal" value="1000"></label>
+    <label class="f">Elevation (ft)<input id="elev" type="number" inputmode="decimal" min="-2000" max="20000" value="1000"></label>
     <label class="f">Altimeter (inHg)<input id="alt" type="number" inputmode="decimal" step="0.01" value="29.92"></label>
-    <label class="f">OAT (°C)<input id="oat" type="number" inputmode="decimal" value="-10"></label>
-    <label class="f">Gross weight (lb)<input id="gw" type="number" inputmode="decimal" value="6800"></label>
+    <label class="f">OAT (°C)<input id="oat" type="number" inputmode="decimal" min="-40" max="51.7" step="0.1" value="-10"></label>
+    <label class="f">Gross weight (lb)<input id="gw" type="number" inputmode="decimal" min="0" max="8000" value="6800"></label>
     <label class="f">Fuel type<select id="fuel"><option value="JetA">Jet A / A-1</option><option value="JetB">Jet B</option></select></label>
     <label class="f">Heater<select id="heater"><option value="off">OFF</option><option value="on">ON</option></select></label>
   </div>
   <div class="grid6" style="margin-top:10px">
-    <label class="f">Relative wind (°)<input id="rwind" type="number" inputmode="decimal" value="0"></label>
-    <label class="f">Wind speed (kt)<input id="wspd" type="number" inputmode="decimal" value="45"></label>
+    <label class="f">Relative wind (°)<input id="rwind" type="number" inputmode="decimal" min="0" max="359" value="0"></label>
+    <label class="f">Wind speed (kt)<input id="wspd" type="number" inputmode="decimal" min="0" value="45"></label>
   </div>
 </section>
 
@@ -840,7 +841,13 @@ function svgChart(cal, paths, marks){
   return s+'</svg>';
 }
 
-function val(id){return parseFloat($(id).value)}
+function val(id){const e=$(id);let v=parseFloat(e.value);
+  if(id==='rwind'&&isFinite(v)) return ((v%360)+360)%360;
+  if(isFinite(v)){const lo=parseFloat(e.min),hi=parseFloat(e.max); if(isFinite(lo)&&v<lo)v=lo; if(isFinite(hi)&&v>hi)v=hi;} return v}
+// snap typed values back inside the allowed range when the field is left
+function clampField(e){const v=parseFloat(e.value);if(!isFinite(v))return;const lo=parseFloat(e.min),hi=parseFloat(e.max);
+  let w=v; if(e.id==='rwind'){w=((Math.round(v)%360)+360)%360;} else {if(isFinite(lo)&&w<lo)w=lo; if(isFinite(hi)&&w>hi)w=hi;}
+  if(w!==v){e.value=w;e.classList.add('clamped');setTimeout(()=>e.classList.remove('clamped'),1200);calc();}}
 function calc(){
   const elev=val('elev'),alt=val('alt'),altU='inHg',oat=val('oat'),gw=val('gw');
   const rw=val('rwind')||0,wspd=val('wspd')||0,wfac=0.5,clr=val('clr')||15;
@@ -1287,6 +1294,7 @@ function calc(){
 
 try{const s=JSON.parse(localStorage.getItem('b429perf')||'null');if(s)for(const k in s)if($(k))$(k).value=s[k]}catch(e){}
 document.querySelectorAll('input,select').forEach(e=>e.addEventListener('input',calc));
+document.querySelectorAll('input[type=number]').forEach(e=>e.addEventListener('change',()=>clampField(e)));
 $('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));['limits','helipad','runway','hover','roc','power'].forEach(k=>$('t-'+k).style.display=b.dataset.t===k?'':'none');try{localStorage.setItem('b429tab',b.dataset.t)}catch(e){}});
 document.querySelectorAll('.chart').forEach(c=>c.addEventListener('click',()=>{$('zc').innerHTML=c.querySelector('svg').outerHTML.replace(/ah(\d+)/g,'zah$1');$('zoom').classList.add('on')}));
 $('pimp').addEventListener('click',()=>{const m=window.__pacM||[];if(isFinite(m[0]))$('pm1').value=(Math.round(m[0]*10)/10);if(isFinite(m[1]))$('pm2').value=(Math.round(m[1]*10)/10);calc();alert_imp();});
