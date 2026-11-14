@@ -62,6 +62,8 @@
   @media (max-width:600px){.pacgrid{grid-template-columns:1fr}}
   .pluscard{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px}
   .btn{font-size:15px;padding:9px 12px;border-radius:8px;border:1px solid #0a6ad1;background:#eef5fd;color:#0a6ad1;font-weight:600;width:100%}
+  #clampNote{display:none;margin:-2px 0 8px;padding:6px 10px;border-radius:8px;background:#fff6e5;border:1px solid #e8c27a;color:#7a4b00;font-size:14px}
+  #clampNote.on{display:block}
   input.clamped{outline:2px solid #e8a33d;background:#fff6e5}
   h3.sub{font-size:13px;margin:16px 0 6px;color:var(--ink);font-weight:650}
   .pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.pair .chart{margin-top:0}
@@ -95,11 +97,12 @@
 </style>
 </head>
 <body>
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.40 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.41 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
   <h2>Conditions <span id="condSum"></span></h2>
+  <div id="clampNote" role="status" aria-live="polite"></div>
   <div class="grid6">
     <label class="f">Elevation (ft)<input id="elev" type="number" inputmode="decimal" min="-2000" max="20000" value="1000"></label>
     <label class="f">Altimeter (inHg)<input id="alt" type="number" inputmode="decimal" step="0.01" value="29.92"></label>
@@ -847,7 +850,12 @@ function val(id){const e=$(id);let v=parseFloat(e.value);
 // snap typed values back inside the allowed range when the field is left
 function clampField(e){const v=parseFloat(e.value);if(!isFinite(v))return;const lo=parseFloat(e.min),hi=parseFloat(e.max);
   let w=v; if(e.id==='rwind'){w=((Math.round(v)%360)+360)%360;} else {if(isFinite(lo)&&w<lo)w=lo; if(isFinite(hi)&&w>hi)w=hi;}
-  if(w!==v){e.value=w;e.classList.add('clamped');setTimeout(()=>e.classList.remove('clamped'),1200);calc();}}
+  if(w!==v){e.value=w;e.classList.add('clamped');setTimeout(()=>e.classList.remove('clamped'),1200);
+    const name=(e.closest('label')?.firstChild?.textContent||e.id).trim();
+    const why=e.id==='rwind'?'relative wind is 0–359°':(w<v?'maximum allowed':'minimum allowed');
+    const n=$('clampNote'); n.textContent=`${name}: ${v} changed to ${w} (${why}).`; n.classList.add('on');
+    clearTimeout(clampField.t); clampField.t=setTimeout(()=>n.classList.remove('on'),6000);
+    calc();}}
 function calc(){
   const elev=val('elev'),alt=val('alt'),altU='inHg',oat=val('oat'),gw=val('gw');
   const rw=val('rwind')||0,wspd=val('wspd')||0,wfac=0.5,clr=val('clr')||15;
