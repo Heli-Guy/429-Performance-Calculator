@@ -120,7 +120,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.45 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.46 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -708,6 +708,8 @@ const IMG = {"p13": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABSoAAAYTBAMAA
   function rocTop(S, pa, oat) {
     const tr = {};
     tr.y = lin2(S.yP)(pa);
+    // sea level sits exactly on the bottom axis: nudge inside so the lines can be read there
+    if (pa >= -50 && tr.y > S.yP[3] - 0.05) tr.y = S.yP[3] - 0.05;
     const xat = pts => polyAt(pts, 'y', tr.y);
     let fam = S.oat.map(f => ({ v: f.v, x: xat(f.pts), top: f.pts[0][1] }));
     const xm = xat(S.max), mo = maxOatPa(pa);
