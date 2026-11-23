@@ -120,7 +120,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.47 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.48 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -1139,8 +1139,9 @@ function calc(){
     if(gw<4500) rm.push(['','Gross weight below 4,500 lb: the 4,500 lb sheet is used (conservative).']);
     if(heater&&oat<=20) rm.push(['',`Heater ON: AEO rates reduced per chart notes (Fig 4-7 above 2,000 ft${pa>2000?'':' — not applied, at or below 2,000 ft'}; Fig 4-8 all altitudes). OEI charts unaffected (heater is shed OEI).`]);
     if(heater&&oat>20) rm.push(['','Heater ON above 20 °C: no reduction published; values shown are heater OFF.']);
-    const card=(k,r,sub)=>`<div class="r ${rocCls(r)} big"><div class="k">${k}</div><div class="v">${rocTxt(r)}</div><div class="s">${sub}</div></div>`;
-    const hs=r=>r.heat?` · heater −${fmt(r.heat)}`:'';
+    const ovG=gw>7500+0.5;
+    const card=(k,r,sub)=>`<div class="r ${ovG?'':rocCls(r)} big"><div class="k">${k}</div><div class="v">${ovG?dash:rocTxt(r)}</div><div class="s">${sub}</div></div>`;
+    const hs=r=>!ovG&&r.heat?` · heater −${fmt(r.heat)}`:'';
     $('rocA').innerHTML=[
       card('Takeoff power',R47,'Fig 4-7 · 60 KIAS'+hs(R47)),
       card('Max continuous',R48,'Fig 4-8 · 60 KIAS'+hs(R48))].join('');
@@ -1153,18 +1154,19 @@ function calc(){
     const calOf=key=>({img:'roc_'+key,im:ROCCROP[key],view:ROCCROP[key]});
     const sheetSvg=(fig,t)=>{
       const S=t.sheet, P=[], M=[];
-      if(t.status==='ok'){ P.push({pts:[[S.xR[1],t.y],[t.x,t.y],[t.x,S.yP[3]]],legs:true}); M.push([t.x,t.y,'PA = '+fmt(pa)+' ft',t.x>(S.xR[1]+S.xR[3])/2?-5:5]); M.push([t.x,S.yP[3]-5,rocV(t.roc),t.x>(S.xR[1]+S.xR[3])/2?-5:5]); }
+      if(ovG){}
+      else if(t.status==='ok'){ P.push({pts:[[S.xR[1],t.y],[t.x,t.y],[t.x,S.yP[3]]],legs:true}); M.push([t.x,t.y,'PA = '+fmt(pa)+' ft',t.x>(S.xR[1]+S.xR[3])/2?-5:5]); M.push([t.x,S.yP[3]-5,rocV(t.roc),t.x>(S.xR[1]+S.xR[3])/2?-5:5]); }
       else if(isFinite(t.y)) P.push({pts:[[S.xR[1],t.y],[S.xR[1]+12,t.y]],arrow:true});
       const sn=ROCD[fig].sheets.indexOf(S)+1;
-      return `<div class="chart">${svgChart(calOf(S.img),P,M)}<div class="cap"><span>Fig ${fig} ${S.gw===7500?'· FMS-11':'sheet '+sn} · ${fmt(S.gw)} lb</span><span>${t.status==='ok'?rocV(t.roc):rocTxt({status:t.status,min:S.xR[0]})}</span></div></div>`;
+      return `<div class="chart">${svgChart(calOf(S.img),P,M)}<div class="cap"><span>Fig ${fig} ${S.gw===7500?'· FMS-11':'sheet '+sn} · ${fmt(S.gw)} lb</span><span>${ovG?'':t.status==='ok'?rocV(t.roc):rocTxt({status:t.status,min:S.xR[0]})}</span></div></div>`;
     };
     [['4-7',R47,'wrapR47'],['4-8',R48,'wrapR48'],['4-9',R49,'wrapR49'],['4-10',R410,'wrapR410']].forEach(([fig,r,id])=>{ $(id).innerHTML=r.parts.map(t=>sheetSvg(fig,t)).join(''); });
     const s15=(C,t,lab)=>{ const P=[],M=[];
-      if(t.status==='ok'||t.offLeft){ P.push({pts:[[C.xR[1],t.y],[t.x,t.y],[t.x,t.y46]],legs:true});
+      if(!ovG&&(t.status==='ok'||t.offLeft)){ P.push({pts:[[C.xR[1],t.y],[t.x,t.y],[t.x,t.y46]],legs:true});
         const gp=(t.path||[]).filter(q=>q[0]>=C.xR[1]); if(gp.length>1) P.push({pts:gp,arrow:true});
         if(!t.offLeft) P.push({pts:[[t.xEnd,t.yGw],[t.xEnd,C.yG[3]]],arrow:true});
         M.push([t.x,t.y,'PA = '+fmt(pa)+' ft',t.x>380?-5:5]); if(!t.offLeft) M.push([t.xEnd,C.yG[3]-3,rocV(t.roc),t.xEnd>380?-5:5]); }
-      return `<div class="chart">${svgChart(calOf(C.img),P,M)}<div class="cap"><span>${lab}</span><span>${t.status==='ok'?rocV(t.roc):rocTxt(t)}</span></div></div>`; };
+      return `<div class="chart">${svgChart(calOf(C.img),P,M)}<div class="cap"><span>${lab}</span><span>${ovG?'':t.status==='ok'?rocV(t.roc):rocTxt(t)}</span></div></div>`; };
     $('wrapR15').innerHTML=s15(ROC15.vtoss,R2T,'FMS-15 Fig 4B-9 · 2 min OEI @ VTOSS')+s15(ROC15.vy,R2Y,'FMS-15 Fig 4B-10 · 2 min OEI @ VY');
   }
 
