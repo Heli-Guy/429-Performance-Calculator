@@ -130,7 +130,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.53 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.54 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -231,12 +231,13 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   <h2>Rate of climb — RFM / FMS-11 / FMS-15</h2>
   <div class="rrow"><div class="rlab">AEO</div><div class="res" id="rocA"></div></div><div class="rrow"><div class="rlab">OEI</div><div class="res" id="rocO"></div></div>
   <div class="msgs" id="rocMsgs"></div>
+  <p class="hint">Fig 4-7 to 4-10 come as one sheet per gross weight (RFM 4,500–7,000 lb, FMS-11 7,500 lb). The result is interpolated linearly between the two sheets either side of your weight; both are shown. Tap a chart to enlarge.</p>
   <h3 class="sub">AEO · Takeoff power — Fig 4-7</h3><div class="pair" id="wrapR47"></div>
   <h3 class="sub">AEO · Max continuous power — Fig 4-8</h3><div class="pair" id="wrapR48"></div>
   <h3 class="sub">OEI · 2 min power — FMS-15 Fig 4B-9 (V<sub>TOSS</sub> 50 KIAS) &amp; 4B-10 (V<sub>Y</sub> 60 KIAS)</h3><div class="pair" id="wrapR15"></div>
   <h3 class="sub">OEI · 30 min power — Fig 4-9</h3><div class="pair" id="wrapR49"></div>
   <h3 class="sub">OEI · Max continuous OEI power — Fig 4-10</h3><div class="pair" id="wrapR410"></div>
-  <p class="hint">Fig 4-7 to 4-10 come as one sheet per gross weight (RFM 4,500–7,000 lb, FMS-11 7,500 lb). The result is interpolated linearly between the two sheets either side of your weight; both are shown. Tap a chart to enlarge.</p>
+  
 </section>
 <section class="card" id="t-stay" style="display:none">
   <h2>Stay-up weight — OEI at cruise</h2>
