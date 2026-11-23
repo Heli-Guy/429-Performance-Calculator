@@ -132,7 +132,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.61 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.62 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -172,9 +172,10 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
 
 <section class="card" id="t-helipad" style="display:none">
   <h2>CAT-A Helipad — FMS-15</h2>
-  <div class="grid6" style="margin-bottom:10px"><label class="f">Helipad clearance (ft)<input id="clr" type="number" inputmode="decimal" value="15"></label></div>
+  <div class="grid6" style="margin-bottom:10px"><label class="f">Obstacle height (ft)<input id="obst" type="number" inputmode="decimal" min="0" max="500" value="0"></label></div>
   <div class="catwrap"><div class="res" id="heli"></div><div class="roccol" id="heliRoc"></div></div>
   <div class="msgs" id="heliMsgs"></div>
+  <div class="chart profile" id="wrapProf" style="margin:12px 0"></div>
 
   <div class="chart" id="wrapWat"></div>
   <div class="chart" id="wrapTdp" style="margin-top:12px"></div>
@@ -973,7 +974,7 @@ function clampField(e){const v=parseFloat(e.value);if(!isFinite(v))return;const 
     calc();}}
 function calc(){
   const elev=val('elev'),alt=val('alt'),altU='inHg',oat=val('oat'),gw=val('gw');
-  const rw=val('rwind')||0,wspd=val('wspd')||0,wfac=0.5,clr=val('clr')||15;
+  const rw=val('rwind')||0,wspd=val('wspd')||0,wfac=0.5,obst=Math.max(0,val('obst')||0),clr=15+obst;
   const pa=B.pressureAltitude(elev,alt,altU);
   const da=B.densityAltitude(pa,oat), daX=B.densityAltitudeExact(pa,oat);
   let rel=(rw%360+360)%360;
@@ -1038,13 +1039,49 @@ function calc(){
   if(ovW) msgs.unshift(['bad',`Gross weight ${fmt(gw)} Lbs exceeds the CAT-A helipad maximum takeoff weight (${fmt(Math.floor(maxW))} Lbs): CAT-A data not valid.`]);
   $('heli').innerHTML=[
     ['Max T/O weight',windBlock||!isFinite(maxW)?dash:fmt(Math.floor(maxW))+' Lbs',windBlock?'':`WAT ${fmt(w.gwWat)} · +wind ${fmt(Math.max(0,w.gwWind-w.gwWat))}`, windBlock?'':(okW?'ok':'bad'),'big'],
-    ['TDP / LDP',windBlock||ovW||!t.valid?dash:fmt(Math.ceil(t.tdp))+' ft',windBlock||ovW?'':(t.hRaw<35?'35 ft minimum applies':`${clr} ft clearance · sheet ${t.sheet}`),'','big'],
+    ['TDP / LDP',windBlock||ovW||!t.valid?dash:fmt(Math.ceil(t.tdp))+' ft',windBlock||ovW?'':(t.hRaw<35?(obst>0?`35 ft minimum + ${fmt(obst)} ft obstacle`:'35 ft minimum applies'):(obst>0?`${fmt(obst)} ft obstacle + 15 ft clearance`:'15 ft clearance')+` · sheet ${t.sheet}`),'','big'],
     ['GW margin',windBlock||!isFinite(maxW)?dash:(okW?'+':'')+fmt(maxW-gw)+' Lbs',windBlock?'':(okW?'within WAT':'over WAT limit'),windBlock?'':(okW?'ok':'bad'),''],
     ['OEI transition',windBlock||ovW?dash:(oe.valid?fmt(Math.ceil(oe.dist/10)*10)+' ft':(oe.offTop?'> 2,400 ft':dash)),windBlock||ovW?'':`to 35 ft · Fig 4A-4 sheet ${oe.sheet}`,'','big'],
     ['Stage 1 climb',windBlock||ovW?dash:climbTxt(s1,CLB.st1),windBlock||ovW?'':'35→200 ft · '+climbSub(s1),'','big'],
     ['Stage 2 climb',windBlock||ovW||!pdr.valid?dash:climbTxt(s2,s2C),windBlock||ovW||!pdr.valid?'':'200→1000 ft · '+(pdr.power==='30min'?'30 min':'2 min')+' OEI · '+climbSub(s2),'','big']
   ].map(r=>`<div class="r ${r[3]} ${r[4]}"><div class="k">${r[0]}</div><div class="v">${r[1]}</div><div class="s">${r[2]}</div></div>`).join('');
   $('heliRoc').innerHTML=rocCol(ovW);
+  // ---- Fig 3A-1 style profile with this takeoff's numbers ----
+  {
+    const blk=windBlock||ovW, D=v=>blk?'– – –':v;
+    const c10=v=>fmt(Math.ceil(v/10)*10)+' ft';
+    const dOe=oe.valid?c10(oe.dist):(oe.offTop?'> 2,400 ft':'– – –');
+    const d1=climbTxt(s1,CLB.st1), d2=pdr.valid?climbTxt(s2,s2C):'– – –';
+    const num=x=>/^[\d,]+ ft$/.test(x)?+x.replace(/[^\d]/g,''):NaN;
+    const tot=num(dOe)+num(d1)+num(d2);
+    const tdpTxt=t.valid?fmt(Math.ceil(t.tdp))+' ft':'– – –';
+    const ob=obst, hLow=15+ob, h35=35+ob, h200=200+ob, h1000=1000+ob;
+    const G=300, xT=120, xL=300, xV=430, xY=630, xE=840, yT=105, yL=246, yV=216, yY=150, yE=48;
+    const txt=(x,y,t,o={})=>`<text x="${x}" y="${y}" font-size="${o.fs||12}" font-weight="${o.fw||600}" fill="${o.c||'#1f2d3d'}" text-anchor="${o.a||'middle'}" font-family="Helvetica,Arial">${t}</text>`;
+    const vArrow=(x,y1,y2,c)=>`<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2+3}" stroke="${c||'#1f2d3d'}" stroke-width="1.4" marker-end="url(#pa)" marker-start="url(#pa)"/>`;
+    const dim=(x1,x2,y,lab,sub)=>`<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="#1f2d3d" stroke-width="1.2" marker-start="url(#pa)" marker-end="url(#pa)"/><line x1="${x1}" y1="${y-7}" x2="${x1}" y2="${y+7}" stroke="#1f2d3d"/><line x1="${x2}" y1="${y-7}" x2="${x2}" y2="${y+7}" stroke="#1f2d3d"/>`+txt((x1+x2)/2,y-6,lab,{fs:11,c:'#5b6b7b'})+txt((x1+x2)/2,y+16,sub,{fs:14,fw:700,c:blk?'#5b6b7b':'#d0021b'});
+    let g=`<svg viewBox="0 0 900 370" xmlns="http://www.w3.org/2000/svg"><defs><marker id="pa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f2d3d"/></marker></defs>`;
+    g+=`<rect x="30" y="${G}" width="840" height="10" fill="#1f2d3d"/><rect x="70" y="${G-5}" width="100" height="5" fill="#9aa5b1"/>`;
+    // obstacle under the low point
+    if(ob>0) g+=`<rect x="${xL-22}" y="${G-26}" width="44" height="26" fill="#f0c24b" stroke="#8a6d00"/>`+txt(xL-28,G-8,`obstacle ${fmt(ob)} ft`,{a:'end',fs:11,fw:700,c:'#8a6d00'});
+    // flight path
+    g+=`<path d="M${xT},${yT} C ${xT+60},${yT+120} ${xL-80},${yL} ${xL},${yL} S ${xV-40},${yV+8} ${xV},${yV} Q ${xV+110},${yV-45} ${xY},${yY} L ${xE},${yE}" fill="none" stroke="#d0021b" stroke-width="2.2" stroke-dasharray="9 6"/>`;
+    // TDP
+    g+=`<circle cx="${xT}" cy="${yT}" r="5" fill="#d0021b"/>`+vArrow(xT,G,yT)+txt(xT+10,yT-12,'TDP / LDP',{a:'start',fs:11,c:'#5b6b7b'})+txt(xT+10,yT+4,D(tdpTxt),{a:'start',fs:15,fw:700,c:'#d0021b'});
+    // low point
+    g+=vArrow(xL,ob>0?G-26:G,yL)+txt(xL,yL-26,D(ob>0?`${fmt(ob)} + 15 = ${fmt(hLow)} ft`:'15 ft'),{fs:13,fw:700,c:'#d0021b'})+txt(xL,yL-12,'minimum clearance',{fs:10,c:'#5b6b7b'});
+    // VTOSS
+    g+=`<circle cx="${xV}" cy="${yV}" r="5" fill="#fff" stroke="#1f2d3d" stroke-width="2"/>`+vArrow(xV,G,yV)+txt(xV-6,yV-30,'V<tspan font-size="9" dy="3">TOSS</tspan><tspan dy="-3"> 50 KIAS</tspan>',{a:'end',fs:12})+txt(xV-6,yV-14,'stage 1 start',{a:'end',fs:10,c:'#5b6b7b'})+txt(xV+8,yV+22,D(ob>0?`${fmt(ob)} + 35 = ${fmt(h35)} ft`:'35 ft'),{a:'start',fs:13,fw:700,c:'#d0021b'});
+    // VY
+    g+=`<line x1="${xY}" y1="${yY}" x2="${xY+40}" y2="${yY}" stroke="#1f2d3d"/>`+vArrow(xY,G,yY)+txt(xY-10,yY-24,'V<tspan font-size="9" dy="3">Y</tspan><tspan dy="-3"> 60 KIAS</tspan>',{a:'end',fs:12})+txt(xY-10,yY-8,'stage 2 start',{a:'end',fs:10,c:'#5b6b7b'})+txt(xY+44,yY+5,D(ob>0?`${fmt(ob)} + 200 = ${fmt(h200)} ft`:'200 ft'),{a:'start',fs:13,fw:700,c:'#d0021b'});
+    // end
+    g+=`<line x1="${xE-40}" y1="${yE}" x2="${xE+10}" y2="${yE}" stroke="#1f2d3d"/>`+vArrow(xE,G,yE)+txt(xE-46,yE+5,D(ob>0?`${fmt(ob)} + 1,000 = ${fmt(h1000)} ft`:'1,000 ft'),{a:'end',fs:13,fw:700,c:'#d0021b'})+txt(xE-46,yE+20,'stage 2 end',{a:'end',fs:10,c:'#5b6b7b'});
+    // distances
+    g+=dim(xT,xV,G+30,'OEI transition (completed T/O)',D(dOe))+dim(xV,xY,G+30,'stage 1 climb',D(d1))+dim(xY,xE,G+30,'stage 2 climb'+(pdr.valid?(pdr.power==='30min'?' · 30 min OEI':' · 2 min OEI'):''),D(d2));
+    g+=txt(450,G+64,blk?'':(isFinite(tot)?`total from TDP to ${fmt(h1000)} ft: ${fmt(tot)} ft`:''),{fs:12,fw:700});
+    g+='</svg>';
+    $('wrapProf').innerHTML=g+`<div class="cap"><span>FMS-15 Fig 3A-1 · OEI Completed Takeoff Profile — Helipad, with this takeoff's values (not to scale)</span><span>${ob>0?'heights include '+fmt(ob)+' ft obstacle':'heights above takeoff surface'}</span></div>`;
+  }
   $('heliMsgs').innerHTML=msgs.map(m=>`<div class="msg ${m[0]}">${m[1]}</div>`).join('');
 
   // WAT chart overlay
@@ -1487,7 +1524,7 @@ function calc(){
   }</table>`;
   // keep "number Lbs" on one line: unit slightly smaller, no wrapping
   document.querySelectorAll('.r .v').forEach(e=>{ if(/ Lbs$/.test(e.innerHTML)){ e.innerHTML=e.innerHTML.replace(/ Lbs$/,'&nbsp;<span class="u">Lbs</span>'); e.classList.add('wt'); } });
-  try{localStorage.setItem('b429perf',JSON.stringify(['elev','alt','oat','gw','rwind','wspd','clr','fuel','heater','harea','plus','pm1','pm2','q1','m1','n1','q2','m2','n2','wxsta','calt','coat'].reduce((o,k)=>(o[k]=$(k).value,o),{})))}catch(e){}
+  try{localStorage.setItem('b429perf',JSON.stringify(['elev','alt','oat','gw','rwind','wspd','obst','fuel','heater','harea','plus','pm1','pm2','q1','m1','n1','q2','m2','n2','wxsta','calt','coat'].reduce((o,k)=>(o[k]=$(k).value,o),{})))}catch(e){}
 }
 
 // ---------- METAR "Current" ----------
