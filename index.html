@@ -130,7 +130,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.54 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.55 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -777,7 +777,15 @@ const IMG = {"p13": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABSoAAAYTBAMAA
     }
     if (out.parts.some(p => p.status !== 'ok')) {
       out.status = out.parts.find(p => p.status !== 'ok').status;
-      if (out.status === 'belowmin') out.min = Math.max(...out.parts.map(p => p.sheet.xR[0]));
+      if (out.status === 'belowmin') {
+        out.min = Math.max(...out.parts.map(p => p.sheet.xR[0]));
+        // one sheet readable, the other below the chart minimum: interpolate using the chart minimum as an upper bound
+        if (out.parts.length === 2 && out.parts.every(p => p.status === 'ok' || p.status === 'belowmin')) {
+          const v = out.parts.map(p => p.status === 'ok' ? p.roc : p.sheet.xR[0]);
+          const [A, Bp] = out.parts, f = (g - A.sheet.gw) / (Bp.sheet.gw - A.sheet.gw);
+          out.min = v[0] + f * (v[1] - v[0]); out.bounded = true;
+        }
+      }
       return out;
     }
     if (out.parts.length === 1) out.roc = out.parts[0].roc;
@@ -808,7 +816,8 @@ const IMG = {"p13": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABSoAAAYTBAMAA
     for (let i = 0; i < pts.length - 1; i++) {
       const a = pts[i], b = pts[i + 1];
       if (a.roc >= 0 && b.roc < 0) {
-        if (!isFinite(b.roc)) return { status: 'between', lo: a.gw, hi: b.gw, pts };
+        if (!isFinite(b.roc)) { const m = F.sheets[i + 1].xR[0]; // b is below the chart minimum m: zero lies at or before this weight
+          return { status: 'between', lo: a.gw, hi: b.gw, max: a.gw + a.roc / (a.roc - m) * (b.gw - a.gw), pts }; }
         return { status: 'ok', gw: a.gw + (0 - a.roc) / (b.roc - a.roc) * (b.gw - a.gw), pts };
       }
     }
@@ -967,7 +976,7 @@ function calc(){
         R49=B.rocSheets(ROCD['4-9'],pa,oat,gw,false), R410=B.rocSheets(ROCD['4-10'],pa,oat,gw,false),
         R2T=B.roc2min(ROC15.vtoss,pa,oat,gw), R2Y=B.roc2min(ROC15.vy,pa,oat,gw);
   const rocV=v=>(v<0?'−':'')+fmt(Math.abs(Math.floor(v/5)*5))+' fpm';
-  const rocTxt=r=>r.status==='ok'?rocV(r.roc):(r.status==='oatmax'?'above max OAT':(r.status==='belowmin'?(isFinite(r.min)?'< '+fmt(r.min)+' fpm':'below chart'):'outside chart'));
+  const rocTxt=r=>r.status==='ok'?rocV(r.roc):(r.status==='oatmax'?'above max OAT':(r.status==='belowmin'?(isFinite(r.min)?'< '+(r.min<0?'−':'')+fmt(Math.abs(Math.ceil(r.min/5)*5))+' fpm':'below chart'):'outside chart'));
   const rocCls=r=>r.status==='ok'?(r.roc>0?'ok':'bad'):'bad';
   const rocCards=()=>[
     ['2-min OEI ROC',R2T.status==='ok'?rocV(R2T.roc):rocTxt(R2T),'VTOSS 50 KIAS · FMS-15 Fig 4B-9'+(R2T.below?' · 4,600 lb line used':''),rocCls(R2T),'big'],
@@ -1230,11 +1239,12 @@ function calc(){
       const sm=[];
       const S49=B.rocSheets(ROCD['4-9'],cpa,co,gw,false), S410=B.rocSheets(ROCD['4-10'],cpa,co,gw,false), S2Y=B.roc2min(ROC15.vy,cpa,co,gw);
       const U49=B.stayUp(ROCD['4-9'],cpa,co), U410=B.stayUp(ROCD['4-10'],cpa,co);
-      const sw=u=>u.status==='ok'?fmt(Math.floor(u.gw/10)*10)+' lb':u.status==='max'?'≥ 7,500 lb':u.status==='below'?'< 4,500 lb':u.status==='between'?fmt(u.lo)+'–'+fmt(u.hi)+' lb':u.status==='oatmax'?'above max OAT':'outside chart';
+      const sw=u=>u.status==='ok'?fmt(Math.floor(u.gw/10)*10)+' lb':u.status==='max'?'≥ 7,500 lb':u.status==='below'?'< 4,500 lb':u.status==='between'?fmt(u.lo)+' lb':u.status==='oatmax'?'above max OAT':'outside chart';
       const swOk=u=>u.status==='max'?gw<=7500.5:(u.status==='ok'?gw<=u.gw+0.5:u.status==='between'?gw<=u.lo:false);
       const swSub=(u,lab)=>{ if(u.status==='ok'){const m=u.gw-gw;return `${lab} · ${(m>=0?'+':'')+fmt(Math.round(m))} lb vs current GW`;}
         if(u.status==='max') return lab+' · positive climb at max GW';
         if(u.status==='below') return lab+' · no climb even at 4,500 lb';
+        if(u.status==='between') return `${lab} · between ${fmt(u.lo)} and ${fmt(Math.floor(u.max/10)*10)} lb (${fmt(u.hi)} lb sheet below chart minimum) · lower value shown`;
         return lab; };
       const wcard=(k,u,lab)=>`<div class="r ${(u.status==='ok'||u.status==='max'||u.status==='below'||u.status==='between')?(swOk(u)?'ok':'bad'):'bad'} big"><div class="k">${k}</div><div class="v">${sw(u)}</div><div class="s">${swSub(u,lab)}</div></div>`;
       $('stayW').innerHTML=wcard('30 min OEI',U49,'zero ROC · Fig 4-9')+wcard('Max continuous OEI',U410,'zero ROC · Fig 4-10');
@@ -1249,7 +1259,7 @@ function calc(){
       // charts: union of the sheets for the current GW and the sheets bracketing the stay-up weight
       const GRN='#14883e';
       const stayCharts=(fig,R,U)=>{
-        const F=ROCD[fig], uw=U.status==='ok'?U.gw:(U.status==='between'?(U.lo+U.hi)/2:null);
+        const F=ROCD[fig], uw=U.status==='ok'?U.gw:(U.status==='between'?(U.lo+U.max)/2:null);
         const ui=new Set(uw!=null?B.rocSheets(F,cpa,co,uw,false).parts.map(t=>t.idx):[]);
         const gi=new Set(ovS?[]:R.parts.map(t=>t.idx));
         const idx=[...new Set([...gi,...ui])].sort((a,b)=>a-b);
