@@ -132,7 +132,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.68 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.69 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -1054,18 +1054,19 @@ function calc(){
       else if(BK.over) msgs.unshift(['bad',`TDP ${fmt(BK.tdp)} ft is above the maximum TDP of ${fmt(Math.floor(BK.max))} ft for the backup obstacle at ${fmt(bkd)} ft (Fig 4A-3) — TDP not valid.`]);
     }
   }
+  const ovX=ovW||(!windBlock&&BK.on&&BK.inside); // no CAT-A solution: overweight, or backup obstacle inside the safety area
   $('heli').innerHTML=[
     ['Max T/O weight',windBlock||!isFinite(maxW)?dash:fmt(Math.floor(maxW))+' Lbs',windBlock?'':`WAT ${fmt(w.gwWat)} · +wind ${fmt(Math.max(0,w.gwWind-w.gwWat))}`, windBlock?'':(okW?'ok':'bad'),'big'],
-    ['TDP / LDP',windBlock||ovW||!t.valid?dash:fmt(Math.ceil(t.tdp))+' ft',windBlock||ovW?'':(t.hRaw<35?(obst>0?`35 ft minimum + ${fmt(obst)} ft obstacle`:'35 ft minimum applies'):(obst>0?`${fmt(obst)} ft obstacle + 15 ft clearance`:'15 ft clearance')+` · sheet ${t.sheet}`)+(BK.on&&!BK.inside?` · max ${fmt(Math.floor(BK.max))} ft (backup obst.)`:''),BK.on&&!windBlock&&!ovW&&(BK.over||BK.inside)?'bad':'','big'],
+    ['TDP / LDP',windBlock||ovX||!t.valid?dash:fmt(Math.ceil(t.tdp))+' ft',windBlock||ovX?'':(t.hRaw<35?(obst>0?`35 ft minimum + ${fmt(obst)} ft obstacle`:'35 ft minimum applies'):(obst>0?`${fmt(obst)} ft obstacle + 15 ft clearance`:'15 ft clearance')+` · sheet ${t.sheet}`)+(BK.on&&!BK.inside?` · max ${fmt(Math.floor(BK.max))} ft (backup obst.)`:''),BK.on&&!windBlock&&!ovX&&(BK.over||BK.inside)?'bad':'','big'],
     ['GW margin',windBlock||!isFinite(maxW)?dash:(okW?'+':'')+fmt(maxW-gw)+' Lbs',windBlock?'':(okW?'within WAT':'over WAT limit'),windBlock?'':(okW?'ok':'bad'),''],
-    ['OEI transition',windBlock||ovW?dash:(oe.valid?fmt(Math.ceil(oe.dist/10)*10)+' ft':(oe.offTop?'> 2,400 ft':dash)),windBlock||ovW?'':`to 35 ft · Fig 4A-4 sheet ${oe.sheet}`,'','big'],
-    ['Stage 1 climb',windBlock||ovW?dash:climbTxt(s1,CLB.st1),windBlock||ovW?'':'35→200 ft · '+climbSub(s1),'','big'],
-    ['Stage 2 climb',windBlock||ovW||!pdr.valid?dash:climbTxt(s2,s2C),windBlock||ovW||!pdr.valid?'':'200→1000 ft · '+(pdr.power==='30min'?'30 min':'2 min')+' OEI · '+climbSub(s2),'','big']
+    ['OEI transition',windBlock||ovX?dash:(oe.valid?fmt(Math.ceil(oe.dist/10)*10)+' ft':(oe.offTop?'> 2,400 ft':dash)),windBlock||ovX?'':`to 35 ft · Fig 4A-4 sheet ${oe.sheet}`,'','big'],
+    ['Stage 1 climb',windBlock||ovX?dash:climbTxt(s1,CLB.st1),windBlock||ovX?'':'35→200 ft · '+climbSub(s1),'','big'],
+    ['Stage 2 climb',windBlock||ovX||!pdr.valid?dash:climbTxt(s2,s2C),windBlock||ovX||!pdr.valid?'':'200→1000 ft · '+(pdr.power==='30min'?'30 min':'2 min')+' OEI · '+climbSub(s2),'','big']
   ].concat(BK.on?[['Max TDP · backup obstacle',BK.inside?'Not clear':fmt(Math.floor(BK.max))+' ft',`${fmt(bkh)} ft obstacle at ${fmt(bkd)} ft · Fig 4A-3`+(BK.inside?' · inside safety area':(isFinite(BK.tdp)?` · TDP ${fmt(BK.tdp)} ft ${BK.over?'too high':'ok'}`:'')),windBlock||ovW?'':((BK.inside||BK.over)?'bad':'ok'),'big']]:[]).map(r=>`<div class="r ${r[3]} ${r[4]}"><div class="k">${r[0]}</div><div class="v">${r[1]}</div><div class="s">${r[2]}</div></div>`).join('');
-  $('heliRoc').innerHTML=rocCol(ovW);
+  $('heliRoc').innerHTML=rocCol(ovX);
   // ---- Fig 3A-1 style profile with this takeoff's numbers ----
   {
-    const blk=windBlock||ovW, D=v=>blk?'– – –':v;
+    const blk=windBlock||ovX, D=v=>blk?'– – –':v;
     const c10=v=>fmt(Math.ceil(v/10)*10)+' ft';
     const dOe=oe.valid?c10(oe.dist):(oe.offTop?'> 2,400 ft':'– – –');
     const d1=climbTxt(s1,CLB.st1), d2=pdr.valid?climbTxt(s2,s2C):'– – –';
