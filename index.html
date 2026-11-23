@@ -130,7 +130,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.49 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.50 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -164,6 +164,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   <button data-t="runway">CAT-A Runway</button>
   <button data-t="hover">Hover</button>
   <button data-t="roc">ROC</button>
+  <button data-t="stay">Stay Up Weight</button>
   <button data-t="power">Power Check</button>
 </div>
 
@@ -236,6 +237,21 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   <h3 class="sub">OEI · 30 min power — Fig 4-9</h3><div class="pair" id="wrapR49"></div>
   <h3 class="sub">OEI · Max continuous OEI power — Fig 4-10</h3><div class="pair" id="wrapR410"></div>
   <p class="hint">Fig 4-7 to 4-10 come as one sheet per gross weight (RFM 4,500–7,000 lb, FMS-11 7,500 lb). The result is interpolated linearly between the two sheets either side of your weight; both are shown. Tap a chart to enlarge.</p>
+</section>
+<section class="card" id="t-stay" style="display:none">
+  <h2>Stay-up weight — OEI at cruise</h2>
+  <div class="grid6" style="margin-bottom:6px">
+    <label class="f">Cruise altitude (ft MSL)<input id="calt" type="number" inputmode="decimal" min="-2000" max="20000" step="500" value="3000"></label>
+    <label class="f">Cruise OAT (°C)<input id="coat" type="number" inputmode="decimal" min="-40" max="51.7" step="1" placeholder="auto"></label>
+  </div>
+  <div class="hint" id="stayInfo" style="margin:0 0 10px"></div>
+  <div class="rrow"><div class="rlab">STAY-UP</div><div class="res" id="stayW"></div></div>
+  <div class="rrow"><div class="rlab">OEI ROC</div><div class="res" id="stayR"></div></div>
+  <div class="msgs" id="stayMsgs"></div>
+  <h3 class="sub">OEI · 30 min power — Fig 4-9 at cruise</h3><div class="pair" id="wrapS49"></div>
+  <h3 class="sub">OEI · Max continuous OEI power — Fig 4-10 at cruise</h3><div class="pair" id="wrapS410"></div>
+  <h3 class="sub">OEI · 2 min power — FMS-15 Fig 4B-10 (V<sub>Y</sub> 60 KIAS) at cruise</h3><div class="pair" id="wrapS15"></div>
+  <p class="hint">Stay-up weight is the gross weight that gives zero rate of climb at the cruise pressure altitude and OAT, interpolated between the 4,500–7,500 lb chart sheets. Cruise OAT, if left blank, is estimated from the surface OAT using the standard lapse rate of 2 °C per 1,000 ft; real temperatures aloft can differ (inversions), so enter the forecast or actual OAT when known.</p>
 </section>
 <section class="card" id="t-power" style="display:none">
   <h2>Power assurance check — RFM Fig 4-1</h2>
@@ -778,6 +794,24 @@ const IMG = {"p13": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABSoAAAYTBAMAA
     return out;
   }
   // FMS-15 Fig 4B-9 / 4B-10: PA/OAT panel then gross-weight guide panel
+  // Stay-up weight: gross weight giving zero ROC, interpolating linearly between weight sheets
+  function stayUp(F, pa, oat) {
+    const pts = F.sheets.map(S => { const t = rocTop(S, pa, oat);
+      let roc = null; if (t.status === 'ok') roc = inv2(S.xR)(t.x); else if (t.status === 'belowmin') roc = -Infinity;
+      return { gw: S.gw, roc, status: t.status }; });
+    if (pts.some(p => p.roc === null)) return { status: pts.find(p => p.roc === null).status, pts };
+    const last = pts[pts.length - 1];
+    if (last.roc >= 0) return { status: 'max', gw: last.gw, pts };
+    if (pts[0].roc < 0) return { status: 'below', gw: pts[0].gw, pts };
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      if (a.roc >= 0 && b.roc < 0) {
+        if (!isFinite(b.roc)) return { status: 'between', lo: a.gw, hi: b.gw, pts };
+        return { status: 'ok', gw: a.gw + (0 - a.roc) / (b.roc - a.roc) * (b.gw - a.gw), pts };
+      }
+    }
+    return { status: 'outside', pts };
+  }
   function roc2min(C, pa, oat, gw) {
     const t = rocTop(C, pa, oat); t.C = C;
     if (t.status !== 'ok') return t;
@@ -816,7 +850,7 @@ const IMG = {"p13": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABSoAAAYTBAMAA
     return t;
   }
 
-  root.B429 = { pacCheck, rocTop, rocSheets, roc2min, hoverAreaLimit, hoverCeiling, landingRunway, rwCarpet, watRunway, lin2, inv2, stage2Power, guideFollow, climbChart, polyAt, famInterp, oeiTransition, oatLimits, fuelLimits, FUELS, xl, across, seg, pressureAltitude, densityAltitude, densityAltitudeExact, wind, watHelipad, tdpHelipad };
+  root.B429 = { stayUp, pacCheck, rocTop, rocSheets, roc2min, hoverAreaLimit, hoverCeiling, landingRunway, rwCarpet, watRunway, lin2, inv2, stage2Power, guideFollow, climbChart, polyAt, famInterp, oeiTransition, oatLimits, fuelLimits, FUELS, xl, across, seg, pressureAltitude, densityAltitude, densityAltitudeExact, wind, watHelipad, tdpHelipad };
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
@@ -1165,22 +1199,55 @@ function calc(){
       card('Max continuous OEI',R410,'Fig 4-10 · 60 KIAS')].join('');
     $('rocMsgs').innerHTML=rm.map(m=>`<div class="msg ${m[0]}">${m[1]}</div>`).join('');
     const calOf=key=>({img:'roc_'+key,im:ROCCROP[key],view:ROCCROP[key]});
-    const sheetSvg=(fig,t)=>{
+    const sheetSvg=(fig,t,paL=pa,hide=ovG)=>{
       const S=t.sheet, P=[], M=[];
-      if(ovG){}
-      else if(t.status==='ok'){ P.push({pts:[[S.xR[1],t.y],[t.x,t.y],[t.x,S.yP[3]]],legs:true}); M.push([t.x,t.y,'PA = '+fmt(pa)+' ft',t.x>(S.xR[1]+S.xR[3])/2?-5:5]); M.push([t.x,S.yP[3]-5,rocV(t.roc),t.x>(S.xR[1]+S.xR[3])/2?-5:5]); }
+      if(hide){}
+      else if(t.status==='ok'){ P.push({pts:[[S.xR[1],t.y],[t.x,t.y],[t.x,S.yP[3]]],legs:true}); M.push([t.x,t.y,'PA = '+fmt(paL)+' ft',t.x>(S.xR[1]+S.xR[3])/2?-5:5]); M.push([t.x,S.yP[3]-5,rocV(t.roc),t.x>(S.xR[1]+S.xR[3])/2?-5:5]); }
       else if(isFinite(t.y)) P.push({pts:[[S.xR[1],t.y],[S.xR[1]+12,t.y]],arrow:true});
       const sn=ROCD[fig].sheets.indexOf(S)+1;
-      return `<div class="chart">${svgChart(calOf(S.img),P,M)}<div class="cap"><span>Fig ${fig} ${S.gw===7500?'· FMS-11':'sheet '+sn} · ${fmt(S.gw)} lb</span><span>${ovG?'':t.status==='ok'?rocV(t.roc):rocTxt({status:t.status,min:S.xR[0]})}</span></div></div>`;
+      return `<div class="chart">${svgChart(calOf(S.img),P,M)}<div class="cap"><span>Fig ${fig} ${S.gw===7500?'· FMS-11':'sheet '+sn} · ${fmt(S.gw)} lb</span><span>${hide?'':t.status==='ok'?rocV(t.roc):rocTxt({status:t.status,min:S.xR[0]})}</span></div></div>`;
     };
     [['4-7',R47,'wrapR47'],['4-8',R48,'wrapR48'],['4-9',R49,'wrapR49'],['4-10',R410,'wrapR410']].forEach(([fig,r,id])=>{ $(id).innerHTML=r.parts.map(t=>sheetSvg(fig,t)).join(''); });
-    const s15=(C,t,lab)=>{ const P=[],M=[];
-      if(!ovG&&(t.status==='ok'||t.offLeft)){ P.push({pts:[[C.xR[1],t.y],[t.x,t.y],[t.x,t.y46]],legs:true});
+    const s15=(C,t,lab,paL=pa,hide=ovG)=>{ const P=[],M=[];
+      if(!hide&&(t.status==='ok'||t.offLeft)){ P.push({pts:[[C.xR[1],t.y],[t.x,t.y],[t.x,t.y46]],legs:true});
         const gp=(t.path||[]).filter(q=>q[0]>=C.xR[1]); if(gp.length>1) P.push({pts:gp,arrow:true});
         if(!t.offLeft) P.push({pts:[[t.xEnd,t.yGw],[t.xEnd,C.yG[3]]],arrow:true});
-        M.push([t.x,t.y,'PA = '+fmt(pa)+' ft',t.x>380?-5:5]); if(!t.offLeft) M.push([t.xEnd,C.yG[3]-3,rocV(t.roc),t.xEnd>380?-5:5]); }
-      return `<div class="chart">${svgChart(calOf(C.img),P,M)}<div class="cap"><span>${lab}</span><span>${ovG?'':t.status==='ok'?rocV(t.roc):rocTxt(t)}</span></div></div>`; };
+        M.push([t.x,t.y,'PA = '+fmt(paL)+' ft',t.x>380?-5:5]); if(!t.offLeft) M.push([t.xEnd,C.yG[3]-3,rocV(t.roc),t.xEnd>380?-5:5]); }
+      return `<div class="chart">${svgChart(calOf(C.img),P,M)}<div class="cap"><span>${lab}</span><span>${hide?'':t.status==='ok'?rocV(t.roc):rocTxt(t)}</span></div></div>`; };
     $('wrapR15').innerHTML=s15(ROC15.vtoss,R2T,'FMS-15 Fig 4B-9 · 2 min OEI @ VTOSS')+s15(ROC15.vy,R2Y,'FMS-15 Fig 4B-10 · 2 min OEI @ VY');
+
+    // ================= STAY-UP WEIGHT =================
+    {
+      const calt=val('calt'), coIn=$('coat').value.trim();
+      const cpa=B.pressureAltitude(isFinite(calt)?calt:0,alt,altU);
+      const coEst=oat-2*((isFinite(calt)?calt:0)-elev)/1000;
+      const co=coIn!==''&&isFinite(+coIn)?+coIn:coEst;
+      $('coat').placeholder=fmt(coEst,0)+' (auto)';
+      const cisa=co-(15-2*cpa/1000);
+      $('stayInfo').innerHTML=`Cruise PA <b>${fmt(cpa)} ft</b> · OAT <b>${fmt(co,1)} °C</b> ${coIn!==''?'(entered)':`(estimated: ${fmt(oat,1)} °C at ${fmt(elev)} ft − 2 °C/1,000 ft)`} · ISA ${(cisa>=0?'+':'')+fmt(cisa,1)} · DA ${fmt(B.densityAltitudeExact(cpa,co))} ft`;
+      const sm=[];
+      const S49=B.rocSheets(ROCD['4-9'],cpa,co,gw,false), S410=B.rocSheets(ROCD['4-10'],cpa,co,gw,false), S2Y=B.roc2min(ROC15.vy,cpa,co,gw);
+      const U49=B.stayUp(ROCD['4-9'],cpa,co), U410=B.stayUp(ROCD['4-10'],cpa,co);
+      const sw=u=>u.status==='ok'?fmt(Math.floor(u.gw/10)*10)+' lb':u.status==='max'?'≥ 7,500 lb':u.status==='below'?'< 4,500 lb':u.status==='between'?fmt(u.lo)+'–'+fmt(u.hi)+' lb':u.status==='oatmax'?'above max OAT':'outside chart';
+      const swOk=u=>u.status==='max'?gw<=7500.5:(u.status==='ok'?gw<=u.gw+0.5:u.status==='between'?gw<=u.lo:false);
+      const swSub=(u,lab)=>{ if(u.status==='ok'){const m=u.gw-gw;return `${lab} · ${(m>=0?'+':'')+fmt(Math.round(m))} lb vs current GW`;}
+        if(u.status==='max') return lab+' · positive climb at max GW';
+        if(u.status==='below') return lab+' · no climb even at 4,500 lb';
+        return lab; };
+      const wcard=(k,u,lab)=>`<div class="r ${(u.status==='ok'||u.status==='max'||u.status==='below'||u.status==='between')?(swOk(u)?'ok':'bad'):'bad'} big"><div class="k">${k}</div><div class="v">${sw(u)}</div><div class="s">${swSub(u,lab)}</div></div>`;
+      $('stayW').innerHTML=wcard('30 min OEI',U49,'zero ROC · Fig 4-9')+wcard('Max continuous OEI',U410,'zero ROC · Fig 4-10');
+      const ovS=gw>7500+0.5;
+      const rcard=(k,r,sub)=>`<div class="r ${ovS?'':rocCls(r)} big"><div class="k">${k}</div><div class="v">${ovS?dash:rocTxt(r)}</div><div class="s">${sub}</div></div>`;
+      $('stayR').innerHTML=rcard('2 min @ VY',S2Y,'FMS-15 Fig 4B-10 · 60 KIAS')+rcard('30 min',S49,'Fig 4-9 · 60 KIAS')+rcard('Max continuous OEI',S410,'Fig 4-10 · 60 KIAS');
+      if(ovS) sm.push(['bad','Gross weight above 7,500 lb: no climb data.']);
+      if(U49.status==='oatmax'||U410.status==='oatmax') sm.push(['bad','Cruise OAT is above the maximum OAT for this pressure altitude.']);
+      if(cpa>20000) sm.push(['bad','Cruise pressure altitude above 20,000 ft.']);
+      if(isFinite(calt)&&calt<elev) sm.push(['','Cruise altitude is below the departure elevation.']);
+      $('stayMsgs').innerHTML=sm.map(m=>`<div class="msg ${m[0]}">${m[1]}</div>`).join('');
+      $('wrapS49').innerHTML=S49.parts.map(t=>sheetSvg('4-9',t,cpa,ovS)).join('');
+      $('wrapS410').innerHTML=S410.parts.map(t=>sheetSvg('4-10',t,cpa,ovS)).join('');
+      $('wrapS15').innerHTML=s15(ROC15.vy,S2Y,'FMS-15 Fig 4B-10 · 2 min OEI @ VY',cpa,ovS);
+    }
   }
 
   // ================= POWER CHECK =================
@@ -1343,7 +1410,7 @@ function calc(){
     row('TDP: x-ref (OAT/PA panel)',fmt(t.xRef,3))+row('TDP: y-ref (GW panel)',fmt(t.yRef,3))+
     row('TDP per wind line (0…30 kt)',t.hs.map(v=>fmt(v,1)).join(' · '))+row('TDP interpolated',fmt(t.hRaw,2)+' ft')
   }</table>`;
-  try{localStorage.setItem('b429perf',JSON.stringify(['elev','alt','oat','gw','rwind','wspd','clr','fuel','heater','harea','plus','pm1','pm2','q1','m1','n1','q2','m2','n2','wxsta'].reduce((o,k)=>(o[k]=$(k).value,o),{})))}catch(e){}
+  try{localStorage.setItem('b429perf',JSON.stringify(['elev','alt','oat','gw','rwind','wspd','clr','fuel','heater','harea','plus','pm1','pm2','q1','m1','n1','q2','m2','n2','wxsta','calt','coat'].reduce((o,k)=>(o[k]=$(k).value,o),{})))}catch(e){}
 }
 
 // ---------- METAR "Current" ----------
@@ -1438,7 +1505,7 @@ setInterval(()=>{wxAge(); if(WX&&$('wxline').classList.contains('on'))wxLine();}
 try{const s=JSON.parse(localStorage.getItem('b429perf')||'null');if(s)for(const k in s)if($(k))$(k).value=s[k]}catch(e){}
 document.querySelectorAll('input,select').forEach(e=>e.addEventListener('input',calc));
 document.querySelectorAll('input[type=number]').forEach(e=>e.addEventListener('change',()=>clampField(e)));
-$('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));['limits','helipad','runway','hover','roc','power'].forEach(k=>$('t-'+k).style.display=b.dataset.t===k?'':'none');try{localStorage.setItem('b429tab',b.dataset.t)}catch(e){}});
+$('tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));['limits','helipad','runway','hover','roc','stay','power'].forEach(k=>$('t-'+k).style.display=b.dataset.t===k?'':'none');try{localStorage.setItem('b429tab',b.dataset.t)}catch(e){}});
 document.querySelectorAll('.chart').forEach(c=>c.addEventListener('click',()=>{$('zc').innerHTML=c.querySelector('svg').outerHTML.replace(/ah(\d+)/g,'zah$1');$('zoom').classList.add('on')}));
 $('pimp').addEventListener('click',()=>{const m=window.__pacM||[];if(isFinite(m[0]))$('pm1').value=(Math.round(m[0]*10)/10);if(isFinite(m[1]))$('pm2').value=(Math.round(m[1]*10)/10);calc();alert_imp();});
 function alert_imp(){const e=$('plusInfo');e.innerHTML='<b style="color:#b26a00">Imported today\'s single power check. FMS-16 requires the average of the 10 most recent checks — replace with your 10-point averages if they differ.</b><br>'+e.innerHTML;}
