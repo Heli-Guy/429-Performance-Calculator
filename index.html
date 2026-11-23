@@ -132,7 +132,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.63 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.64 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -1065,8 +1065,7 @@ function calc(){
     // helicopter on the pad and at TDP (artwork from Fig 3A-1), with the rearward climb to TDP / rejected takeoff back to the pad
     g+=`<image href="${IMG.prof_pad}" x="116" y="${G-5-36}" width="116" height="36"/>`;
     g+=`<image href="${IMG.prof_tdp}" x="${xT-62}" y="${yT-40}" width="112" height="42"/>`;
-    g+=`<line x1="168" y1="${G-46}" x2="${xT+6}" y2="${yT+12}" stroke="#1f2d3d" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#pa)"/>`;
-    g+=`<line x1="${xT+22}" y1="${yT+8}" x2="184" y2="${G-48}" stroke="#1f2d3d" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#pa)"/>`;
+    g+=`<line x1="176" y1="${G-46}" x2="${xT+12}" y2="${yT+10}" stroke="#1f2d3d" stroke-width="1.8" stroke-dasharray="8 6" marker-start="url(#pa)" marker-end="url(#pa)"/>`;
 
     // obstacle under the low point
     if(ob>0) g+=`<rect x="${xL-22}" y="${G-26}" width="44" height="26" fill="#f0c24b" stroke="#8a6d00"/>`+txt(xL+28,G-8,`obstacle ${fmt(ob)} ft`,{a:'start',fs:11,fw:700,c:'#8a6d00'});
