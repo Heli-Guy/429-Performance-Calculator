@@ -130,7 +130,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.57 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.58 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -250,8 +250,8 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   <div class="rrow"><div class="rlab">OEI ROC</div><div class="res" id="stayR"></div></div>
   <div class="msgs" id="stayMsgs"></div>
   <p class="hint">Stay-up weight is the gross weight that gives zero rate of climb at the cruise pressure altitude and OAT, interpolated between the 4,500–7,500 lb chart sheets. Cruise OAT, if left blank, is estimated from the surface OAT using the standard lapse rate of 2 °C per 1,000 ft; real temperatures aloft can differ (inversions), so enter the forecast or actual OAT when known.</p>
-  <h3 class="sub">OEI · 30 min power — Fig 4-9 at cruise</h3><div class="pair" id="wrapS49"></div>
   <h3 class="sub">OEI · Max continuous OEI power — Fig 4-10 at cruise</h3><div class="pair" id="wrapS410"></div>
+  <h3 class="sub">OEI · 30 min power — Fig 4-9 at cruise</h3><div class="pair" id="wrapS49"></div>
   <h3 class="sub">OEI · 2 min power — FMS-15 Fig 4B-10 (V<sub>Y</sub> 60 KIAS) at cruise</h3><div class="pair" id="wrapS15"></div>
   
 </section>
@@ -1287,10 +1287,10 @@ function calc(){
         if(u.status==='between') return `${lab} · between ${fmt(u.lo)} and ${fmt(Math.floor(u.max/10)*10)} lb (${fmt(u.hi)} lb sheet below chart minimum) · lower value shown`;
         return lab; };
       const wcard=(k,u,lab)=>`<div class="r ${(u.status==='ok'||u.status==='max'||u.status==='below'||u.status==='between')?(swOk(u)?'ok':'bad'):'bad'} big"><div class="k">${k}</div><div class="v">${sw(u)}</div><div class="s">${swSub(u,lab)}</div></div>`;
-      $('stayW').innerHTML=wcard('30 min OEI',U49,'zero ROC · Fig 4-9')+wcard('Max continuous OEI',U410,'zero ROC · Fig 4-10');
+      $('stayW').innerHTML=wcard('Max continuous OEI',U410,'zero ROC · Fig 4-10')+wcard('30 min OEI',U49,'zero ROC · Fig 4-9');
       const ovS=gw>7500+0.5;
       const rcard=(k,r,sub)=>`<div class="r ${ovS?'':rocCls(r)} big"><div class="k">${k}</div><div class="v">${ovS?dash:rocTxt(r)}</div><div class="s">${sub}</div></div>`;
-      $('stayR').innerHTML=rcard('2 min @ VY',S2Y,'FMS-15 Fig 4B-10 · 60 KIAS')+rcard('30 min',S49,'Fig 4-9 · 60 KIAS')+rcard('Max continuous OEI',S410,'Fig 4-10 · 60 KIAS');
+      $('stayR').innerHTML=rcard('Max continuous OEI',S410,'Fig 4-10 · 60 KIAS')+rcard('30 min',S49,'Fig 4-9 · 60 KIAS')+rcard('2 min @ VY',S2Y,'FMS-15 Fig 4B-10 · 60 KIAS');
       if(ovS) sm.push(['bad','Gross weight above 7,500 lb: no climb data.']);
       if(U49.status==='oatmax'||U410.status==='oatmax') sm.push(['bad','Cruise OAT is above the maximum OAT for this pressure altitude.']);
       if(cpa>20000) sm.push(['bad','Cruise pressure altitude above 20,000 ft.']);
