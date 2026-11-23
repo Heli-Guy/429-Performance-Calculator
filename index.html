@@ -130,7 +130,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.50 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.51 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -1244,8 +1244,33 @@ function calc(){
       if(cpa>20000) sm.push(['bad','Cruise pressure altitude above 20,000 ft.']);
       if(isFinite(calt)&&calt<elev) sm.push(['','Cruise altitude is below the departure elevation.']);
       $('stayMsgs').innerHTML=sm.map(m=>`<div class="msg ${m[0]}">${m[1]}</div>`).join('');
-      $('wrapS49').innerHTML=S49.parts.map(t=>sheetSvg('4-9',t,cpa,ovS)).join('');
-      $('wrapS410').innerHTML=S410.parts.map(t=>sheetSvg('4-10',t,cpa,ovS)).join('');
+      // charts: union of the sheets for the current GW and the sheets bracketing the stay-up weight
+      const GRN='#14883e';
+      const stayCharts=(fig,R,U)=>{
+        const F=ROCD[fig], uw=U.status==='ok'?U.gw:(U.status==='between'?(U.lo+U.hi)/2:null);
+        const ui=new Set(uw!=null?B.rocSheets(F,cpa,co,uw,false).parts.map(t=>t.idx):[]);
+        const gi=new Set(ovS?[]:R.parts.map(t=>t.idx));
+        const idx=[...new Set([...gi,...ui])].sort((a,b)=>a-b);
+        return idx.map(i=>{
+          const S=F.sheets[i], t=B.rocTop(S,cpa,co), P=[], M=[];
+          const right=v=>v>(S.xR[1]+S.xR[3])/2?-5:5;
+          if(t.status==='ok'){
+            const roc=B.inv2(S.xR)(t.x);
+            const cc=gi.has(i)?undefined:GRN;
+            P.push(Object.assign({pts:[[S.xR[1],t.y],[t.x,t.y],[t.x,S.yP[3]]],legs:true},cc?{c:cc}:{}));
+            M.push([t.x,t.y,'PA = '+fmt(cpa)+' ft',right(t.x),cc]); M.push([t.x,S.yP[3]-5,rocV(roc),right(t.x),cc]);
+          } else if(isFinite(t.y)) P.push({pts:[[S.xR[1],t.y],[S.xR[1]+12,t.y]],arrow:true});
+          if(ui.has(i)){
+            const x0=B.lin2(S.xR)(0);
+            P.push({pts:[[x0,S.yP[3]],[x0,isFinite(t.y)?t.y:S.yP[1]]],c:GRN,w:2});
+            M.push([x0,(S.yP[3]+(isFinite(t.y)?t.y:S.yP[1]))/2,'0 fpm · stay-up ≈ '+sw(U),5,GRN]);
+          }
+          const tags=[gi.has(i)?'your GW':'',ui.has(i)?'<b style="color:'+GRN+'">stay-up</b>':''].filter(Boolean).join(' · ');
+          return `<div class="chart">${svgChart(calOf(S.img),P,M)}<div class="cap"><span>Fig ${fig} ${S.gw===7500?'· FMS-11':'sheet '+(i+1)} · ${fmt(S.gw)} lb</span><span>${tags}</span></div></div>`;
+        }).join('');
+      };
+      $('wrapS49').innerHTML=stayCharts('4-9',S49,U49);
+      $('wrapS410').innerHTML=stayCharts('4-10',S410,U410);
       $('wrapS15').innerHTML=s15(ROC15.vy,S2Y,'FMS-15 Fig 4B-10 · 2 min OEI @ VY',cpa,ovS);
     }
   }
