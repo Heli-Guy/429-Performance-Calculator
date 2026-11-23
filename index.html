@@ -130,7 +130,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.56 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.57 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -1306,11 +1306,6 @@ function calc(){
         return idx.map(i=>{
           const S=F.sheets[i], t=B.rocRead(S,cpa,co), P=[], M=[];
           traceSheet(S,t,cpa,P,M,gi.has(i)?undefined:GRN);
-          if(ui.has(i)){
-            const x0=B.lin2(S.xR)(0);
-            P.push({pts:[[x0,S.yP[3]],[x0,isFinite(t.y)?t.y:S.yP[1]]],c:GRN,w:2});
-            M.push([x0,(S.yP[3]+(isFinite(t.y)?t.y:S.yP[1]))/2,'0 fpm · stay-up '+sw(U),5,GRN]);
-          }
           const tags=[gi.has(i)?'your GW':'',ui.has(i)?'<b style="color:'+GRN+'">stay-up</b>':''].filter(Boolean).join(' · ');
           return `<div class="chart">${svgChart(calOf(S.img),P,M)}<div class="cap"><span>${S.gw===7500?'FMS-11':'RFM'} Fig ${fig} ${S.gw===7500?'':'sheet '+(i+1)+' '}· ${fmt(S.gw)} lb</span><span>${tags}</span></div></div>`;
         }).join('');
