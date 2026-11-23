@@ -130,7 +130,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.55 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.56 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -763,6 +763,36 @@ const IMG = {"p13": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABSoAAAYTBAMAA
     tr.status = 'ok';
     return tr;
   }
+  // Off the left edge (below the chart's minimum ROC): extend each OAT line's first ~30 pt straight on past the edge.
+  // Returns null if the conditions can't be read that way or land more than EXT_FPM below the chart minimum.
+  const EXT_FPM = 300;
+  function rocTopExtrap(S, pa, oat) {
+    const y = lin2(S.yP)(pa), xL = S.xR[1];
+    const ext = pts => {
+      const x = polyAt(pts, 'y', y); if (isFinite(x)) return x;
+      const p0 = pts[0]; if (Math.abs(p0[0] - xL) > 1.5 || y > p0[1]) return NaN; // only lines that start on the left edge, read above their start
+      let j = 1; while (j < pts.length - 1 && pts[j + 1][0] - p0[0] <= 30) j++;
+      const q = pts[j]; if (q[1] === p0[1]) return NaN;
+      return p0[0] + (y - p0[1]) * (q[0] - p0[0]) / (q[1] - p0[1]);
+    };
+    const mo = maxOatPa(pa); if (oat > mo + 0.05) return null;
+    const keep = S.oat.map(f => ({ v: f.v, x: ext(f.pts) })).filter(f => isFinite(f.x));
+    const xm = ext(S.max); if (isFinite(xm)) keep.push({ v: Math.max(mo, keep.length ? keep[keep.length - 1].v + 0.01 : mo), x: xm });
+    keep.sort((a, b) => a.v - b.v);
+    if (keep.length < 2 || oat < keep[0].v - 0.01 || oat > keep[keep.length - 1].v + 0.01) return null;
+    let k = 0; while (k < keep.length - 2 && oat > keep[k + 1].v) k++;
+    const a = keep[k], b = keep[k + 1];
+    const x = a.x + (b.v === a.v ? 0 : (oat - a.v) / (b.v - a.v)) * (b.x - a.x);
+    const roc = inv2(S.xR)(x);
+    if (!isFinite(roc) || roc < S.xR[0] - EXT_FPM) return null;
+    return { status: 'ok', extrap: true, x, y, roc };
+  }
+  function rocRead(S, pa, oat) {
+    const t = rocTop(S, pa, oat);
+    if (t.status === 'ok') { t.roc = inv2(S.xR)(t.x); return t; }
+    if (t.status === 'belowmin') { const e = rocTopExtrap(S, pa, oat); if (e) return e; }
+    return t;
+  }
   // Fig 4-7..4-10: interpolate between weight sheets
   function rocSheets(F, pa, oat, gw, heater) {
     const S = F.sheets, out = { parts: [] };
@@ -771,8 +801,7 @@ const IMG = {"p13": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABSoAAAYTBAMAA
     let k = 0; while (k < S.length - 2 && g > S[k + 1].gw) k++;
     const pick = g === S[k].gw ? [k] : (g === S[k + 1].gw ? [k + 1] : [k, k + 1]);
     for (const i of pick) {
-      const t = rocTop(S[i], pa, oat); t.sheet = S[i]; t.idx = i;
-      if (t.status === 'ok') t.roc = inv2(S[i].xR)(t.x);
+      const t = rocRead(S[i], pa, oat); t.sheet = S[i]; t.idx = i;
       out.parts.push(t);
     }
     if (out.parts.some(p => p.status !== 'ok')) {
@@ -788,6 +817,7 @@ const IMG = {"p13": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABSoAAAYTBAMAA
       }
       return out;
     }
+    out.extrap = out.parts.some(p => p.extrap);
     if (out.parts.length === 1) out.roc = out.parts[0].roc;
     else { const [A, Bp] = out.parts, f = (g - A.sheet.gw) / (Bp.sheet.gw - A.sheet.gw); out.roc = A.roc + f * (Bp.roc - A.roc); }
     out.status = 'ok';
@@ -806,9 +836,9 @@ const IMG = {"p13": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABSoAAAYTBAMAA
   // FMS-15 Fig 4B-9 / 4B-10: PA/OAT panel then gross-weight guide panel
   // Stay-up weight: gross weight giving zero ROC, interpolating linearly between weight sheets
   function stayUp(F, pa, oat) {
-    const pts = F.sheets.map(S => { const t = rocTop(S, pa, oat);
-      let roc = null; if (t.status === 'ok') roc = inv2(S.xR)(t.x); else if (t.status === 'belowmin') roc = -Infinity;
-      return { gw: S.gw, roc, status: t.status }; });
+    const pts = F.sheets.map(S => { const t = rocRead(S, pa, oat);
+      let roc = null; if (t.status === 'ok') roc = t.roc; else if (t.status === 'belowmin') roc = -Infinity;
+      return { gw: S.gw, roc, status: t.status, extrap: !!t.extrap }; });
     if (pts.some(p => p.roc === null)) return { status: pts.find(p => p.roc === null).status, pts };
     const last = pts[pts.length - 1];
     if (last.roc >= 0) return { status: 'max', gw: last.gw, pts };
@@ -818,7 +848,7 @@ const IMG = {"p13": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABSoAAAYTBAMAA
       if (a.roc >= 0 && b.roc < 0) {
         if (!isFinite(b.roc)) { const m = F.sheets[i + 1].xR[0]; // b is below the chart minimum m: zero lies at or before this weight
           return { status: 'between', lo: a.gw, hi: b.gw, max: a.gw + a.roc / (a.roc - m) * (b.gw - a.gw), pts }; }
-        return { status: 'ok', gw: a.gw + (0 - a.roc) / (b.roc - a.roc) * (b.gw - a.gw), pts };
+        return { status: 'ok', gw: a.gw + (0 - a.roc) / (b.roc - a.roc) * (b.gw - a.gw), extrap: a.extrap || b.extrap, ext: [a, b].find(p => p.extrap), pts };
       }
     }
     return { status: 'outside', pts };
@@ -861,7 +891,7 @@ const IMG = {"p13": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABSoAAAYTBAMAA
     return t;
   }
 
-  root.B429 = { stayUp, pacCheck, rocTop, rocSheets, roc2min, hoverAreaLimit, hoverCeiling, landingRunway, rwCarpet, watRunway, lin2, inv2, stage2Power, guideFollow, climbChart, polyAt, famInterp, oeiTransition, oatLimits, fuelLimits, FUELS, xl, across, seg, pressureAltitude, densityAltitude, densityAltitudeExact, wind, watHelipad, tdpHelipad };
+  root.B429 = { rocRead, stayUp, pacCheck, rocTop, rocSheets, roc2min, hoverAreaLimit, hoverCeiling, landingRunway, rwCarpet, watRunway, lin2, inv2, stage2Power, guideFollow, climbChart, polyAt, famInterp, oeiTransition, oatLimits, fuelLimits, FUELS, xl, across, seg, pressureAltitude, densityAltitude, densityAltitudeExact, wind, watHelipad, tdpHelipad };
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
@@ -976,7 +1006,7 @@ function calc(){
         R49=B.rocSheets(ROCD['4-9'],pa,oat,gw,false), R410=B.rocSheets(ROCD['4-10'],pa,oat,gw,false),
         R2T=B.roc2min(ROC15.vtoss,pa,oat,gw), R2Y=B.roc2min(ROC15.vy,pa,oat,gw);
   const rocV=v=>(v<0?'−':'')+fmt(Math.abs(Math.floor(v/5)*5))+' fpm';
-  const rocTxt=r=>r.status==='ok'?rocV(r.roc):(r.status==='oatmax'?'above max OAT':(r.status==='belowmin'?(isFinite(r.min)?'< '+(r.min<0?'−':'')+fmt(Math.abs(Math.ceil(r.min/5)*5))+' fpm':'below chart'):'outside chart'));
+  const rocTxt=r=>r.status==='ok'?(r.extrap?'≈ ':'')+rocV(r.roc):(r.status==='oatmax'?'above max OAT':(r.status==='belowmin'?(isFinite(r.min)?'< '+(r.min<0?'−':'')+fmt(Math.abs(Math.ceil(r.min/5)*5))+' fpm':'below chart'):'outside chart'));
   const rocCls=r=>r.status==='ok'?(r.roc>0?'ok':'bad'):'bad';
   const rocCards=()=>[
     ['2-min OEI ROC',R2T.status==='ok'?rocV(R2T.roc):rocTxt(R2T),'VTOSS 50 KIAS · FMS-15 Fig 4B-9'+(R2T.below?' · 4,600 lb line used':''),rocCls(R2T),'big'],
@@ -1210,13 +1240,23 @@ function calc(){
       card('Max continuous OEI',R410,'Fig 4-10 · 60 KIAS')].join('');
     $('rocMsgs').innerHTML=rm.map(m=>`<div class="msg ${m[0]}">${m[1]}</div>`).join('');
     const calOf=key=>({img:'roc_'+key,im:ROCCROP[key],view:ROCCROP[key]});
+    // trace on one weight sheet; extrapolated readings past the left edge are marked at the edge
+    const rocLab=t=>(t.extrap?'≈ ':'')+rocV(t.roc)+(t.extrap?' (extrapolated)':'');
+    const traceSheet=(S,t,paL,P,M,cc)=>{
+      const side=v=>v>(S.xR[1]+S.xR[3])/2?-5:5, col=cc?{c:cc}:{};
+      if(t.status==='ok'&&t.x>=S.xR[1]-0.5){
+        P.push(Object.assign({pts:[[S.xR[1],t.y],[t.x,t.y],[t.x,S.yP[3]]],legs:true},col));
+        M.push([t.x,t.y,'PA = '+fmt(paL)+' ft',side(t.x),cc]); M.push([t.x,S.yP[3]-5,rocLab(t),side(t.x),cc]);
+      } else if(t.status==='ok'){
+        P.push(Object.assign({pts:[[S.xR[1]+18,t.y],[S.xR[1]+1,t.y]],arrow:true,dash:'3 2'},col));
+        M.push([S.xR[1]+1,t.y,'PA = '+fmt(paL)+' ft · '+rocLab(t)+', off chart',20,cc]);
+      } else if(isFinite(t.y)) P.push({pts:[[S.xR[1],t.y],[S.xR[1]+12,t.y]],arrow:true});
+    };
     const sheetSvg=(fig,t,paL=pa,hide=ovG)=>{
       const S=t.sheet, P=[], M=[];
-      if(hide){}
-      else if(t.status==='ok'){ P.push({pts:[[S.xR[1],t.y],[t.x,t.y],[t.x,S.yP[3]]],legs:true}); M.push([t.x,t.y,'PA = '+fmt(paL)+' ft',t.x>(S.xR[1]+S.xR[3])/2?-5:5]); M.push([t.x,S.yP[3]-5,rocV(t.roc),t.x>(S.xR[1]+S.xR[3])/2?-5:5]); }
-      else if(isFinite(t.y)) P.push({pts:[[S.xR[1],t.y],[S.xR[1]+12,t.y]],arrow:true});
+      if(!hide) traceSheet(S,t,paL,P,M);
       const sn=ROCD[fig].sheets.indexOf(S)+1;
-      return `<div class="chart">${svgChart(calOf(S.img),P,M)}<div class="cap"><span>${S.gw===7500?'FMS-11':'RFM'} Fig ${fig} ${S.gw===7500?'':'sheet '+sn+' '}· ${fmt(S.gw)} lb</span><span>${hide?'':t.status==='ok'?rocV(t.roc):rocTxt({status:t.status,min:S.xR[0]})}</span></div></div>`;
+      return `<div class="chart">${svgChart(calOf(S.img),P,M)}<div class="cap"><span>${S.gw===7500?'FMS-11':'RFM'} Fig ${fig} ${S.gw===7500?'':'sheet '+sn+' '}· ${fmt(S.gw)} lb</span><span>${hide?'':t.status==='ok'?rocLab(t):rocTxt({status:t.status,min:S.xR[0]})}</span></div></div>`;
     };
     [['4-7',R47,'wrapR47'],['4-8',R48,'wrapR48'],['4-9',R49,'wrapR49'],['4-10',R410,'wrapR410']].forEach(([fig,r,id])=>{ $(id).innerHTML=r.parts.map(t=>sheetSvg(fig,t)).join(''); });
     const s15=(C,t,lab,paL=pa,hide=ovG)=>{ const P=[],M=[];
@@ -1239,9 +1279,9 @@ function calc(){
       const sm=[];
       const S49=B.rocSheets(ROCD['4-9'],cpa,co,gw,false), S410=B.rocSheets(ROCD['4-10'],cpa,co,gw,false), S2Y=B.roc2min(ROC15.vy,cpa,co,gw);
       const U49=B.stayUp(ROCD['4-9'],cpa,co), U410=B.stayUp(ROCD['4-10'],cpa,co);
-      const sw=u=>u.status==='ok'?fmt(Math.floor(u.gw/10)*10)+' lb':u.status==='max'?'≥ 7,500 lb':u.status==='below'?'< 4,500 lb':u.status==='between'?fmt(u.lo)+' lb':u.status==='oatmax'?'above max OAT':'outside chart';
+      const sw=u=>u.status==='ok'?(u.extrap?'≈ ':'')+fmt(Math.floor(u.gw/10)*10)+' lb':u.status==='max'?'≥ 7,500 lb':u.status==='below'?'< 4,500 lb':u.status==='between'?fmt(u.lo)+' lb':u.status==='oatmax'?'above max OAT':'outside chart';
       const swOk=u=>u.status==='max'?gw<=7500.5:(u.status==='ok'?gw<=u.gw+0.5:u.status==='between'?gw<=u.lo:false);
-      const swSub=(u,lab)=>{ if(u.status==='ok'){const m=u.gw-gw;return `${lab} · ${(m>=0?'+':'')+fmt(Math.round(m))} lb vs current GW`;}
+      const swSub=(u,lab)=>{ if(u.status==='ok'){const m=u.gw-gw;return `${lab} · ${(m>=0?'+':'')+fmt(Math.round(m))} lb vs current GW`+(u.extrap?` · <b>extrapolated</b>: on the ${fmt(u.ext.gw)} lb sheet an OAT line was extended past the chart's left edge (≈ ${rocV(u.ext.roc)})`:'');}
         if(u.status==='max') return lab+' · positive climb at max GW';
         if(u.status==='below') return lab+' · no climb even at 4,500 lb';
         if(u.status==='between') return `${lab} · between ${fmt(u.lo)} and ${fmt(Math.floor(u.max/10)*10)} lb (${fmt(u.hi)} lb sheet below chart minimum) · lower value shown`;
@@ -1264,18 +1304,12 @@ function calc(){
         const gi=new Set(ovS?[]:R.parts.map(t=>t.idx));
         const idx=[...new Set([...gi,...ui])].sort((a,b)=>a-b);
         return idx.map(i=>{
-          const S=F.sheets[i], t=B.rocTop(S,cpa,co), P=[], M=[];
-          const right=v=>v>(S.xR[1]+S.xR[3])/2?-5:5;
-          if(t.status==='ok'){
-            const roc=B.inv2(S.xR)(t.x);
-            const cc=gi.has(i)?undefined:GRN;
-            P.push(Object.assign({pts:[[S.xR[1],t.y],[t.x,t.y],[t.x,S.yP[3]]],legs:true},cc?{c:cc}:{}));
-            M.push([t.x,t.y,'PA = '+fmt(cpa)+' ft',right(t.x),cc]); M.push([t.x,S.yP[3]-5,rocV(roc),right(t.x),cc]);
-          } else if(isFinite(t.y)) P.push({pts:[[S.xR[1],t.y],[S.xR[1]+12,t.y]],arrow:true});
+          const S=F.sheets[i], t=B.rocRead(S,cpa,co), P=[], M=[];
+          traceSheet(S,t,cpa,P,M,gi.has(i)?undefined:GRN);
           if(ui.has(i)){
             const x0=B.lin2(S.xR)(0);
             P.push({pts:[[x0,S.yP[3]],[x0,isFinite(t.y)?t.y:S.yP[1]]],c:GRN,w:2});
-            M.push([x0,(S.yP[3]+(isFinite(t.y)?t.y:S.yP[1]))/2,'0 fpm · stay-up ≈ '+sw(U),5,GRN]);
+            M.push([x0,(S.yP[3]+(isFinite(t.y)?t.y:S.yP[1]))/2,'0 fpm · stay-up '+sw(U),5,GRN]);
           }
           const tags=[gi.has(i)?'your GW':'',ui.has(i)?'<b style="color:'+GRN+'">stay-up</b>':''].filter(Boolean).join(' · ');
           return `<div class="chart">${svgChart(calOf(S.img),P,M)}<div class="cap"><span>${S.gw===7500?'FMS-11':'RFM'} Fig ${fig} ${S.gw===7500?'':'sheet '+(i+1)+' '}· ${fmt(S.gw)} lb</span><span>${tags}</span></div></div>`;
