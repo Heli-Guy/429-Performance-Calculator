@@ -130,7 +130,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.52 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.53 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -248,10 +248,11 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   <div class="rrow"><div class="rlab">STAY-UP</div><div class="res" id="stayW"></div></div>
   <div class="rrow"><div class="rlab">OEI ROC</div><div class="res" id="stayR"></div></div>
   <div class="msgs" id="stayMsgs"></div>
+  <p class="hint">Stay-up weight is the gross weight that gives zero rate of climb at the cruise pressure altitude and OAT, interpolated between the 4,500–7,500 lb chart sheets. Cruise OAT, if left blank, is estimated from the surface OAT using the standard lapse rate of 2 °C per 1,000 ft; real temperatures aloft can differ (inversions), so enter the forecast or actual OAT when known.</p>
   <h3 class="sub">OEI · 30 min power — Fig 4-9 at cruise</h3><div class="pair" id="wrapS49"></div>
   <h3 class="sub">OEI · Max continuous OEI power — Fig 4-10 at cruise</h3><div class="pair" id="wrapS410"></div>
   <h3 class="sub">OEI · 2 min power — FMS-15 Fig 4B-10 (V<sub>Y</sub> 60 KIAS) at cruise</h3><div class="pair" id="wrapS15"></div>
-  <p class="hint">Stay-up weight is the gross weight that gives zero rate of climb at the cruise pressure altitude and OAT, interpolated between the 4,500–7,500 lb chart sheets. Cruise OAT, if left blank, is estimated from the surface OAT using the standard lapse rate of 2 °C per 1,000 ft; real temperatures aloft can differ (inversions), so enter the forecast or actual OAT when known.</p>
+  
 </section>
 <section class="card" id="t-power" style="display:none">
   <h2>Power assurance check — RFM Fig 4-1</h2>
