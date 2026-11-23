@@ -132,7 +132,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.64 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.65 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -1061,11 +1061,11 @@ function calc(){
     const vArrow=(x,y1,y2,c)=>`<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2+3}" stroke="${c||'#1f2d3d'}" stroke-width="1.4" marker-end="url(#pa)" marker-start="url(#pa)"/>`;
     const dim=(x1,x2,y,lab,sub)=>`<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="#1f2d3d" stroke-width="1.2" marker-start="url(#pa)" marker-end="url(#pa)"/><line x1="${x1}" y1="${y-7}" x2="${x1}" y2="${y+7}" stroke="#1f2d3d"/><line x1="${x2}" y1="${y-7}" x2="${x2}" y2="${y+7}" stroke="#1f2d3d"/>`+txt((x1+x2)/2,y-6,lab,{fs:11,c:'#5b6b7b'})+txt((x1+x2)/2,y+16,sub,{fs:14,fw:700,c:blk?'#5b6b7b':'#d0021b'});
     let g=`<svg viewBox="0 0 900 370" xmlns="http://www.w3.org/2000/svg"><defs><marker id="pa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f2d3d"/></marker></defs>`;
-    g+=`<rect x="30" y="${G}" width="840" height="10" fill="#1f2d3d"/><rect x="118" y="${G-5}" width="112" height="5" fill="#9aa5b1"/>`;
+    g+=`<rect x="30" y="${G}" width="840" height="10" fill="#1f2d3d"/><rect x="118" y="${G}" width="112" height="5" fill="#c3cad2"/>`;
     // helicopter on the pad and at TDP (artwork from Fig 3A-1), with the rearward climb to TDP / rejected takeoff back to the pad
-    g+=`<image href="${IMG.prof_pad}" x="116" y="${G-5-36}" width="116" height="36"/>`;
+    g+=`<image href="${IMG.prof_pad}" x="116" y="${G-35}" width="116" height="36"/>`;
     g+=`<image href="${IMG.prof_tdp}" x="${xT-62}" y="${yT-40}" width="112" height="42"/>`;
-    g+=`<line x1="176" y1="${G-46}" x2="${xT+12}" y2="${yT+10}" stroke="#1f2d3d" stroke-width="1.8" stroke-dasharray="8 6" marker-start="url(#pa)" marker-end="url(#pa)"/>`;
+    g+=`<line x1="176" y1="${G-41}" x2="${xT+12}" y2="${yT+10}" stroke="#1f2d3d" stroke-width="1.8" stroke-dasharray="8 6" marker-start="url(#pa)" marker-end="url(#pa)"/>`;
 
     // obstacle under the low point
     if(ob>0) g+=`<rect x="${xL-22}" y="${G-26}" width="44" height="26" fill="#f0c24b" stroke="#8a6d00"/>`+txt(xL+28,G-8,`obstacle ${fmt(ob)} ft`,{a:'start',fs:11,fw:700,c:'#8a6d00'});
