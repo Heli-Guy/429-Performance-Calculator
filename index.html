@@ -69,6 +69,16 @@
   .btn{font-size:15px;padding:9px 12px;border-radius:8px;border:1px solid #0a6ad1;background:#eef5fd;color:#0a6ad1;font-weight:600;width:100%}
   #clampNote{display:none;margin:-2px 0 8px;padding:6px 10px;border-radius:8px;background:#fff6e5;border:1px solid #e8c27a;color:#7a4b00;font-size:14px}
   #clampNote.on{display:block}
+  input.wx{background:#e6f0fc!important;border-color:#0a6ad1!important;color:#0a4a9a!important;font-weight:600}
+  .wxbtnwrap{display:flex;flex-direction:column;gap:4px;font-size:12px;grid-column:span 2}
+  #wxbtn{display:flex;align-items:center;justify-content:center;gap:10px;height:100%;min-height:40px;border-radius:8px;border:1px solid #0a6ad1;background:#0a6ad1;color:#fff;font-size:17px;cursor:pointer;padding:4px 10px}
+  #wxbtn small{font-size:13px;font-weight:600;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.22)}
+  #wxbtn.busy{opacity:.6;cursor:progress}
+  #wxbtn small.g{background:#14883e}#wxbtn small.a{background:#d98a00}#wxbtn small.r{background:#c62828}
+  #wxline{display:none;margin-top:8px;font-size:13px;color:#33475b;line-height:1.35}
+  #wxline.on{display:block}#wxline code{font-size:12.5px;background:#f1f4f8;padding:1px 5px;border-radius:4px;word-break:break-word}
+  #wxline .err{color:#c62828;font-weight:600}
+  @media (max-width:600px){.wxbtnwrap{grid-column:span 1}}
   input.clamped{outline:2px solid #e8a33d;background:#fff6e5}
   #splash{position:fixed;inset:0;z-index:100;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .5s ease}
   #splash.out{opacity:0;pointer-events:none}
@@ -120,7 +130,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.48 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.49 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -137,7 +147,10 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   <div class="grid6" style="margin-top:10px">
     <label class="f">Relative wind (°)<input id="rwind" type="number" inputmode="decimal" min="0" max="359" value="0"></label>
     <label class="f">Wind speed (kt)<input id="wspd" type="number" inputmode="decimal" min="0" value="45"></label>
+    <label class="f">METAR station<input id="wxsta" type="text" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="Nearest"></label>
+    <div class="f wxbtnwrap"><span>&nbsp;</span><button id="wxbtn" type="button"><b>Current</b><small id="wxage">METAR</small></button></div>
   </div>
+  <div id="wxline"></div>
 </section>
 
 <section class="card">
@@ -1330,8 +1343,97 @@ function calc(){
     row('TDP: x-ref (OAT/PA panel)',fmt(t.xRef,3))+row('TDP: y-ref (GW panel)',fmt(t.yRef,3))+
     row('TDP per wind line (0…30 kt)',t.hs.map(v=>fmt(v,1)).join(' · '))+row('TDP interpolated',fmt(t.hRaw,2)+' ft')
   }</table>`;
-  try{localStorage.setItem('b429perf',JSON.stringify(['elev','alt','oat','gw','rwind','wspd','clr','fuel','heater','harea','plus','pm1','pm2','q1','m1','n1','q2','m2','n2'].reduce((o,k)=>(o[k]=$(k).value,o),{})))}catch(e){}
+  try{localStorage.setItem('b429perf',JSON.stringify(['elev','alt','oat','gw','rwind','wspd','clr','fuel','heater','harea','plus','pm1','pm2','q1','m1','n1','q2','m2','n2','wxsta'].reduce((o,k)=>(o[k]=$(k).value,o),{})))}catch(e){}
 }
+
+// ---------- METAR "Current" ----------
+const WX_FIELDS=['elev','alt','oat','wspd'];
+const IEM='https://mesonet.agron.iastate.edu';
+const CA_NETS=['AB','BC','MB','NB','NF','NS','NT','NU','ON','PE','QC','SK','YT'].map(p=>`CA_${p}_ASOS`);
+let WX=null;
+const nm=(a1,o1,a2,o2)=>{const r=Math.PI/180,dl=(a2-a1)*r,dO=(o2-o1)*r;const h=Math.sin(dl/2)**2+Math.cos(a1*r)*Math.cos(a2*r)*Math.sin(dO/2)**2;return 3440.065*2*Math.asin(Math.sqrt(h));};
+const brg=(a1,o1,a2,o2)=>{const r=Math.PI/180;const y=Math.sin((o2-o1)*r)*Math.cos(a2*r),x=Math.cos(a1*r)*Math.sin(a2*r)-Math.sin(a1*r)*Math.cos(a2*r)*Math.cos((o2-o1)*r);return (Math.atan2(y,x)/r+360)%360;};
+const cmp=d=>['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'][Math.round(d/22.5)%16];
+const getJSON=async(u,ms=12000)=>{const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);try{const r=await fetch(u,{signal:c.signal,cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json();}finally{clearTimeout(t);}};
+const getPos=()=>new Promise(res=>{if(!navigator.geolocation)return res(null);navigator.geolocation.getCurrentPosition(p=>res(p.coords),()=>res(null),{enableHighAccuracy:true,timeout:10000,maximumAge:120000});});
+function parseMetar(row){
+  const raw=row.raw||'';
+  let alt=null,oat=null;
+  const a=raw.match(/\sA(\d{4})(?=\s|$)/); if(a) alt=+a[1]/100;
+  else { const q=raw.match(/\sQ(\d{4})(?=\s|$)/); if(q) alt=Math.round(+q[1]/33.8639*100)/100; else if(row.alti!=null) alt=row.alti; }
+  const tg=raw.match(/\sT([01])(\d{3})([01])\d{3}(?=\s|$)/);
+  const tt=raw.match(/\s(M?\d{2})\/(M?\d{2})?(?=\s|$)/);
+  if(tg) oat=(tg[1]==='1'?-1:1)*(+tg[2])/10;
+  else if(tt) oat=(tt[1][0]==='M'?-1:1)*(+tt[1].replace('M',''));
+  else if(row.tmpf!=null) oat=Math.round((row.tmpf-32)*5/9*10)/10;
+  const w=raw.match(/\s(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT/);
+  const spd=w?+w[2]:(row.sknt!=null?row.sknt:null), gst=w&&w[3]?+w[3]:(row.gust||null), dir=w?w[1]:(row.drct!=null?String(row.drct).padStart(3,'0'):null);
+  return {alt,oat,spd,gst,dir};
+}
+async function stationElev(row){
+  try{const g=await getJSON(`${IEM}/geojson/network/${row.network}.geojson`);const f=g.features.find(f=>(f.id||f.properties.sid)===row.station);return f&&f.properties.elevation!=null?f.properties.elevation*3.28084:null;}catch(e){return null;}
+}
+function wxAge(){
+  const el=$('wxage'); if(!WX){el.textContent='METAR';el.className='';return;}
+  const m=Math.max(0,Math.round((Date.now()-WX.obs)/60000));
+  el.textContent=`${WX.sta} · ${m<120?m+' min':(m/60).toFixed(1)+' h'}`;
+  el.className=m<=60?'g':(m<=120?'a':'r');
+  WX_FIELDS.forEach(k=>$(k).classList.toggle('wx',WX.f[k]!=null&&String(WX.f[k])===$(k).value));
+}
+function wxLine(){
+  const L=$('wxline'); if(!WX){L.classList.remove('on');return;}
+  const m=Math.round((Date.now()-WX.obs)/60000);
+  const loc=WX.dist!=null?` · ${fmt(WX.dist,0)} NM ${fmt(WX.brg,0)}° (${cmp(WX.brg)})`:'';
+  const old=m>90?` <span class="err">Observation is ${m<120?m+' min':(m/60).toFixed(1)+' h'} old.</span>`:'';
+  const far=WX.dist!=null&&WX.dist>40?` <span class="err">Nearest reporting station is ${fmt(WX.dist,0)} NM away.</span>`:'';
+  const wind=WX.dir?` Wind ${WX.dir==='VRB'?'variable':WX.dir+'° true'} ${WX.spd} kt${WX.gst?' gusting '+WX.gst:''} — steady speed entered; set relative wind for your heading.`:'';
+  const el=WX.elevSrc==='gps'?` Elevation from device GPS (±${fmt(WX.elevAcc*3.28084,0)} ft).`:(WX.elevSrc==='stn'?` Elevation is ${WX.sta}'s field elevation — change it if you're not there.`:' <span class="err">Elevation not available from the station — check the elevation field.</span>');
+  L.innerHTML=`<b>${WX.sta}</b> ${WX.name?WX.name+' ':''}${loc}<br><code>${WX.raw}</code><br>${wind}${el}${old}${far}`;
+  L.classList.add('on');
+}
+async function wxFetch(){
+  const b=$('wxbtn'); if(b.classList.contains('busy'))return;
+  b.classList.add('busy'); $('wxage').textContent='…'; $('wxage').className='';
+  const L=$('wxline');
+  try{
+    const want=$('wxsta').value.trim().toUpperCase();
+    const pos=await getPos();
+    let row=null, dist=null, b2=null;
+    if(want){
+      const j=await getJSON(`${IEM}/api/1/currents.json?station=${encodeURIComponent(want)}`);
+      row=(j.data||[]).find(d=>d.raw)||null;
+      if(!row) throw new Error(`No current METAR found for ${want}.`);
+    } else {
+      if(!pos) throw new Error('Location not available — allow location access, or type a station ID (e.g. CYOW).');
+      const all=(await Promise.all(CA_NETS.map(n=>getJSON(`${IEM}/api/1/currents.json?network=${n}`).then(j=>j.data||[]).catch(()=>[])))).flat();
+      const now=Date.now();
+      const ok=all.filter(d=>d.raw&&d.lat!=null&&d.utc_valid&&(now-Date.parse(d.utc_valid))<3*3600e3&&/\s(A|Q)\d{4}/.test(d.raw)&&/\s(M?\d{2})\//.test(d.raw));
+      if(!ok.length) throw new Error('No reporting station found within reach.');
+      ok.forEach(d=>d._d=nm(pos.latitude,pos.longitude,d.lat,d.lon));
+      ok.sort((a,c)=>a._d-c._d); row=ok[0];
+    }
+    if(pos&&row.lat!=null){ dist=nm(pos.latitude,pos.longitude,row.lat,row.lon); b2=brg(pos.latitude,pos.longitude,row.lat,row.lon); }
+    const P=parseMetar(row);
+    let elev=null, elevSrc=null, elevAcc=null;
+    if(pos&&pos.altitude!=null&&pos.altitudeAccuracy!=null&&pos.altitudeAccuracy<=30){ elev=Math.round(pos.altitude*3.28084/10)*10; elevSrc='gps'; elevAcc=pos.altitudeAccuracy; }
+    else { const e=await stationElev(row); if(e!=null){ elev=Math.round(e); elevSrc='stn'; } }
+    const f={};
+    if(elev!=null){ $('elev').value=elev; f.elev=$('elev').value; }
+    if(P.alt!=null){ $('alt').value=P.alt.toFixed(2); f.alt=$('alt').value; }
+    if(P.oat!=null){ $('oat').value=P.oat; f.oat=$('oat').value; }
+    if(P.spd!=null){ $('wspd').value=P.spd; f.wspd=$('wspd').value; }
+    WX={sta:row.station,name:row.name,raw:row.raw,obs:Date.parse(row.utc_valid),dist,brg:b2,dir:P.dir,spd:P.spd,gst:P.gst,elevSrc,elevAcc,f};
+    try{localStorage.setItem('b429wx',JSON.stringify(WX))}catch(e){}
+    calc(); wxAge(); wxLine();
+  }catch(e){
+    const msg=e.name==='AbortError'?'Weather server did not respond — check the connection.':(e instanceof TypeError?'No connection to the weather server.':e.message);
+    L.innerHTML=`<span class="err">${msg}</span>`; L.classList.add('on'); wxAge();
+  }finally{ b.classList.remove('busy'); }
+}
+$('wxbtn').addEventListener('click',wxFetch);
+$('wxsta').addEventListener('input',()=>{$('wxsta').value=$('wxsta').value.toUpperCase().replace(/[^A-Z0-9]/g,'');});
+WX_FIELDS.forEach(k=>$(k).addEventListener('input',()=>$(k).classList.remove('wx')));
+setInterval(()=>{wxAge(); if(WX&&$('wxline').classList.contains('on'))wxLine();},30000);
 
 try{const s=JSON.parse(localStorage.getItem('b429perf')||'null');if(s)for(const k in s)if($(k))$(k).value=s[k]}catch(e){}
 document.querySelectorAll('input,select').forEach(e=>e.addEventListener('input',calc));
@@ -1348,6 +1450,9 @@ try{const tb=localStorage.getItem('b429tab');const btn=tb&&document.querySelecto
 const setHH=()=>document.documentElement.style.setProperty('--hh',document.querySelector('header').offsetHeight+'px');
 setHH(); window.addEventListener('resize',setHH);
 calc();
+try{WX=JSON.parse(localStorage.getItem('b429wx')||'null');}catch(e){WX=null}
+if(WX&&Date.now()-WX.obs>12*3600e3){WX=null;try{localStorage.removeItem('b429wx')}catch(e){}}
+wxAge(); if(WX) wxLine();
 })();
 </script>
 </body>
