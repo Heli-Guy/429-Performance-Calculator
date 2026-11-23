@@ -38,6 +38,8 @@
   .r .v{font-size:26px;font-weight:650;font-variant-numeric:tabular-nums;margin-top:2px}
   .r .s{font-size:12px;color:var(--mute);margin-top:2px}
   .r.big .v{font-size:32px}
+  .r .v.wt{white-space:nowrap}.r .v .u{font-size:.62em;font-weight:600;margin-left:1px}
+  #stayW{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
   #rocA .r .v,#rocO .r .v,.roccol .r .v{font-size:26px;white-space:nowrap}.r.sm .v{font-size:20px}
   .r.ok{border-color:#9ccfaf;background:#f2faf5}.r.ok .v{color:var(--ok)}
   .r.bad{border-color:#f0a3ae;background:#fdf2f4}.r.bad .v{color:var(--bad)}
@@ -130,7 +132,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.59 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.60 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -1476,6 +1478,8 @@ function calc(){
     row('TDP: x-ref (OAT/PA panel)',fmt(t.xRef,3))+row('TDP: y-ref (GW panel)',fmt(t.yRef,3))+
     row('TDP per wind line (0…30 kt)',t.hs.map(v=>fmt(v,1)).join(' · '))+row('TDP interpolated',fmt(t.hRaw,2)+' ft')
   }</table>`;
+  // keep "number Lbs" on one line: unit slightly smaller, no wrapping
+  document.querySelectorAll('.r .v').forEach(e=>{ if(/ Lbs$/.test(e.innerHTML)){ e.innerHTML=e.innerHTML.replace(/ Lbs$/,'&nbsp;<span class="u">Lbs</span>'); e.classList.add('wt'); } });
   try{localStorage.setItem('b429perf',JSON.stringify(['elev','alt','oat','gw','rwind','wspd','clr','fuel','heater','harea','plus','pm1','pm2','q1','m1','n1','q2','m2','n2','wxsta','calt','coat'].reduce((o,k)=>(o[k]=$(k).value,o),{})))}catch(e){}
 }
 
