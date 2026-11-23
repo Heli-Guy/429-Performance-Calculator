@@ -132,7 +132,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.60 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.61 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -1275,9 +1275,11 @@ function calc(){
       const cpa=B.pressureAltitude(isFinite(calt)?calt:0,alt,altU);
       const coEst=oat-2*((isFinite(calt)?calt:0)-elev)/1000;
       const co=coIn!==''&&isFinite(+coIn)?+coIn:coEst;
+      const noC=!isFinite(calt)||calt<=elev; // no cruise altitude, or not above the field: nothing to calculate
       $('coat').placeholder=fmt(coEst,0)+' (auto)';
       const cisa=co-(15-2*cpa/1000);
-      $('stayInfo').innerHTML=`Cruise PA <b>${fmt(cpa)} ft</b> · OAT <b>${fmt(co,1)} °C</b> ${coIn!==''?'(entered)':`(estimated: ${fmt(oat,1)} °C at ${fmt(elev)} ft − 2 °C/1,000 ft)`} · ISA ${(cisa>=0?'+':'')+fmt(cisa,1)} · DA ${fmt(B.densityAltitudeExact(cpa,co))} ft`;
+      if(noC){ $('coat').placeholder='—'; $('stayInfo').innerHTML=`<b style="color:#c62828">Enter a cruise altitude above the field elevation (${fmt(elev)} ft) to calculate.</b>`; }
+      else $('stayInfo').innerHTML=`Cruise PA <b>${fmt(cpa)} ft</b> · OAT <b>${fmt(co,1)} °C</b> ${coIn!==''?'(entered)':`(estimated: ${fmt(oat,1)} °C at ${fmt(elev)} ft − 2 °C/1,000 ft)`} · ISA ${(cisa>=0?'+':'')+fmt(cisa,1)} · DA ${fmt(B.densityAltitudeExact(cpa,co))} ft`;
       const sm=[];
       const S49=B.rocSheets(ROCD['4-9'],cpa,co,gw,false), S410=B.rocSheets(ROCD['4-10'],cpa,co,gw,false), S2Y=B.roc2min(ROC15.vy,cpa,co,gw);
       const U49=B.stayUp(ROCD['4-9'],cpa,co), U410=B.stayUp(ROCD['4-10'],cpa,co);
@@ -1288,15 +1290,15 @@ function calc(){
         if(u.status==='below') return lab+' · no climb even at 4,500 Lbs';
         if(u.status==='between') return `${lab} · between ${fmt(u.lo)} and ${fmt(Math.floor(u.max/10)*10)} Lbs (${fmt(u.hi)} Lbs sheet below chart minimum) · lower value shown`;
         return lab; };
-      const wcard=(k,u,lab)=>`<div class="r ${(u.status==='ok'||u.status==='max'||u.status==='below'||u.status==='between')?(swOk(u)?'ok':'bad'):'bad'} big"><div class="k">${k}</div><div class="v">${sw(u)}</div><div class="s">${swSub(u,lab)}</div></div>`;
+      const wcard=(k,u,lab)=>noC?`<div class="r big"><div class="k">${k}</div><div class="v">${dash}</div><div class="s">${lab}</div></div>`:`<div class="r ${(u.status==='ok'||u.status==='max'||u.status==='below'||u.status==='between')?(swOk(u)?'ok':'bad'):'bad'} big"><div class="k">${k}</div><div class="v">${sw(u)}</div><div class="s">${swSub(u,lab)}</div></div>`;
       $('stayW').innerHTML=wcard('Max continuous OEI',U410,'zero ROC · Fig 4-10')+wcard('30 min OEI',U49,'zero ROC · Fig 4-9');
       const ovS=gw>7500+0.5;
-      const rcard=(k,r,sub)=>`<div class="r ${ovS?'':rocCls(r)} big"><div class="k">${k}</div><div class="v">${ovS?dash:rocTxt(r)}</div><div class="s">${sub}</div></div>`;
+      const rcard=(k,r,sub)=>`<div class="r ${ovS||noC?'':rocCls(r)} big"><div class="k">${k}</div><div class="v">${ovS||noC?dash:rocTxt(r)}</div><div class="s">${sub}</div></div>`;
       $('stayR').innerHTML=rcard('Max continuous OEI',S410,'Fig 4-10 · 60 KIAS')+rcard('30 min',S49,'Fig 4-9 · 60 KIAS')+rcard('2 min @ VY',S2Y,'FMS-15 Fig 4B-10 · 60 KIAS');
       if(ovS) sm.push(['bad','Gross weight above 7,500 Lbs: no climb data.']);
       if(U49.status==='oatmax'||U410.status==='oatmax') sm.push(['bad','Cruise OAT is above the maximum OAT for this pressure altitude.']);
       if(cpa>20000) sm.push(['bad','Cruise pressure altitude above 20,000 ft.']);
-      if(isFinite(calt)&&calt<elev) sm.push(['','Cruise altitude is below the departure elevation.']);
+      if(noC){ sm.length=0; sm.push(['bad',!isFinite(calt)?'No cruise altitude entered: stay-up weight and OEI climb rates not calculated.':`Cruise altitude (${fmt(calt)} ft) is not above the field elevation (${fmt(elev)} ft): stay-up weight and OEI climb rates not calculated.`]); }
       $('stayMsgs').innerHTML=sm.map(m=>`<div class="msg ${m[0]}">${m[1]}</div>`).join('');
       // charts: union of the sheets for the current GW and the sheets bracketing the stay-up weight
       const GRN='#14883e';
@@ -1312,9 +1314,14 @@ function calc(){
           return `<div class="chart">${svgChart(calOf(S.img),P,M)}<div class="cap"><span>${S.gw===7500?'FMS-11':'RFM'} Fig ${fig} ${S.gw===7500?'':'sheet '+(i+1)+' '}· ${fmt(S.gw)} Lbs</span><span>${tags}</span></div></div>`;
         }).join('');
       };
-      $('wrapS49').innerHTML=stayCharts('4-9',S49,U49);
-      $('wrapS410').innerHTML=stayCharts('4-10',S410,U410);
-      $('wrapS15').innerHTML=s15(ROC15.vy,S2Y,'FMS-15 Fig 4B-10 · 2 min OEI @ VY',cpa,ovS);
+      if(noC){
+        $('wrapS49').innerHTML=S49.parts.map(t=>sheetSvg('4-9',t,cpa,true)).join('');
+        $('wrapS410').innerHTML=S410.parts.map(t=>sheetSvg('4-10',t,cpa,true)).join('');
+      } else {
+        $('wrapS49').innerHTML=stayCharts('4-9',S49,U49);
+        $('wrapS410').innerHTML=stayCharts('4-10',S410,U410);
+      }
+      $('wrapS15').innerHTML=s15(ROC15.vy,S2Y,'FMS-15 Fig 4B-10 · 2 min OEI @ VY',cpa,ovS||noC);
     }
   }
 
