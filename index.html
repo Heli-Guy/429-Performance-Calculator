@@ -132,7 +132,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.70 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.71 · test build</div></header>
 <main>
 
 <section class="card" id="cond">
@@ -172,7 +172,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
 
 <section class="card" id="t-helipad" style="display:none">
   <h2>CAT-A Helipad — FMS-15</h2>
-  <div class="grid6" style="margin-bottom:10px"><label class="f">Flyaway obstacle height (ft)<input id="obst" type="number" inputmode="decimal" min="0" max="500" value="0"></label><label class="f">Backup obstacle height (ft)<input id="bkh" type="number" inputmode="decimal" min="0" max="200" placeholder="none"></label><label class="f">Backup obstacle distance (ft)<input id="bkd" type="number" inputmode="decimal" min="0" max="400" placeholder="from touchdown pt"></label></div>
+  <div class="grid6" style="margin-bottom:10px"><label class="f">Backup obstacle height (ft)<input id="bkh" type="number" inputmode="decimal" min="0" max="200" placeholder="none"></label><label class="f">Backup obstacle distance (ft)<input id="bkd" type="number" inputmode="decimal" min="0" max="400" placeholder="from touchdown pt"></label><label class="f" style="grid-column:-2/-1">Flyaway obstacle height (ft)<input id="obst" type="number" inputmode="decimal" min="0" max="500" value="0"></label></div>
   <div class="catwrap"><div class="res" id="heli"></div><div class="roccol" id="heliRoc"></div></div>
   <div class="msgs" id="heliMsgs"></div>
   <div class="chart profile" id="wrapProf" style="margin:12px 0"></div>
@@ -1048,9 +1048,10 @@ function calc(){
     // beyond dT the limit stays at the line's height at dT (= TDP − 65 ft).
     BK.tdp=t.valid?Math.ceil(t.tdp):NaN;
     BK.dT=isFinite(BK.tdp)?73+(BK.tdp-65)/KS:Infinity;
-    BK.allow=Math.max(0,KS*(Math.min(bkd,BK.dT)-73));
-    BK.inside=bkh>BK.allow+0.05;
-    BK.fix=BK.inside&&bkd>BK.dT&&bkh<=KS*(bkd-73)+0.05; // a higher TDP (obstacle + 65 ft) would clear it
+    BK.behind=bkd>BK.dT;                         // further back than the TDP point: the helicopter never gets there
+    BK.allow=Math.max(0,KS*(bkd-73));
+    BK.inside=!BK.behind&&bkh>BK.allow+0.05;
+    BK.fix=false;
     if(!windBlock&&!ovW&&BK.inside) msgs.unshift(['bad',`Backup obstacle ${fmt(bkh)} ft at ${fmt(bkd)} ft is taller than the ${fmt(Math.round(BK.allow))} ft allowed there (Fig 4A-3${isFinite(BK.dT)?`: TDP ${fmt(BK.tdp)} ft backs up to ${fmt(BK.dT)} ft`:''}) — CAT-A helipad profile not valid.`+(BK.fix?` A TDP of ${fmt(bkh+65)} ft or more would clear it.`:'')]);
   }
   const ovX=ovW||(!windBlock&&BK.on&&BK.inside); // no CAT-A solution: overweight, or backup obstacle inside the safety area
@@ -1061,7 +1062,7 @@ function calc(){
     ['OEI transition',windBlock||ovX?dash:(oe.valid?fmt(Math.ceil(oe.dist/10)*10)+' ft':(oe.offTop?'> 2,400 ft':dash)),windBlock||ovX?'':`to 35 ft · Fig 4A-4 sheet ${oe.sheet}`,'','big'],
     ['Stage 1 climb',windBlock||ovX?dash:climbTxt(s1,CLB.st1),windBlock||ovX?'':'35→200 ft · '+climbSub(s1),'','big'],
     ['Stage 2 climb',windBlock||ovX||!pdr.valid?dash:climbTxt(s2,s2C),windBlock||ovX||!pdr.valid?'':'200→1000 ft · '+(pdr.power==='30min'?'30 min':'2 min')+' OEI · '+climbSub(s2),'','big']
-  ].concat(BK.on?[['Backup obstacle',BK.inside?'Not clear':'Clear',`${fmt(bkh)} ft at ${fmt(bkd)} ft · max ${fmt(Math.round(BK.allow))} ft allowed there · Fig 4A-3`,windBlock||ovW?'':(BK.inside?'bad':'ok'),'big']]:[]).map(r=>`<div class="r ${r[3]} ${r[4]}"><div class="k">${r[0]}</div><div class="v">${r[1]}</div><div class="s">${r[2]}</div></div>`).join('');
+  ].concat(BK.on?[['Backup obstacle',BK.inside?'Not clear':'Clear',`${fmt(bkh)} ft at ${fmt(bkd)} ft · `+(BK.behind?`behind the TDP point (${fmt(BK.dT)} ft back) — not a factor`:`max ${fmt(Math.round(BK.allow))} ft allowed there`)+' · Fig 4A-3',windBlock||ovW?'':(BK.inside?'bad':'ok'),'big']]:[]).map(r=>`<div class="r ${r[3]} ${r[4]}"><div class="k">${r[0]}</div><div class="v">${r[1]}</div><div class="s">${r[2]}</div></div>`).join('');
   $('heliRoc').innerHTML=rocCol(ovX);
   // ---- Fig 3A-1 style profile with this takeoff's numbers ----
   {
@@ -1108,15 +1109,14 @@ function calc(){
         const dd=Math.min(225,bkd), col=BK.inside?'#d0021b':'#8a6d00', ln=d=>KS*(d-73);
         // allowed-obstacle boundary for this TDP: obstacle-height line up to dT, then flat at TDP − 65
         if(isFinite(BK.dT)&&BK.dT>73){ const dc=Math.min(BK.dT,225), pts=[[X(73),Y(0)],[X(dc),Y(ln(dc))]];
-          if(BK.dT<225) pts.push([X(225),Y(ln(BK.dT))]);
           P.push({pts,c:BK.inside?'#d0021b':'#14883e',w:2.5});
           if(BK.dT<=225){ P.push({pts:[[X(BK.dT),Y(BK.tdp)],[X(BK.dT),Y(ln(BK.dT))]],c:'#0a6ad1',w:1.2,dash:'3 2'});
             M.push([X(BK.dT),Y(BK.tdp),`TDP ${fmt(BK.tdp)} ft · ${fmt(BK.dT)} ft back`,BK.dT>150?6:-6,'#0a6ad1']); }
           else M.push([X(225),Y(200),`TDP ${fmt(BK.tdp)} ft — beyond chart`,6,'#0a6ad1']); }
         P.push({pts:[[X(dd),Y(0)],[X(dd),Y(Math.min(bkh,200))]],c:col,w:5});
-        M.push([X(dd),Y(Math.min(bkh,200)),`obstacle ${fmt(bkh)} ft @ ${fmt(bkd)} ft (max ${fmt(Math.round(BK.allow))} ft)`,dd>150?6:-6,col]);
+        M.push([X(dd),Y(Math.min(bkh,200)),`obstacle ${fmt(bkh)} ft @ ${fmt(bkd)} ft `+(BK.behind?'(behind TDP point)':`(max ${fmt(Math.round(BK.allow))} ft)`),dd>150?6:-6,col]);
       }
-      $('wrapBk').innerHTML=svgChart(C,P,M)+`<div class="cap"><span>FMS-15 Fig 4A-3 · Obstacle Avoidance — Helipad (backup obstacle)</span><span>${BK.on?(BK.inside?'obstacle not clear':`clear · max ${fmt(Math.round(BK.allow))} ft at ${fmt(bkd)} ft`):'enter backup obstacle height and distance'}</span></div>`;
+      $('wrapBk').innerHTML=svgChart(C,P,M)+`<div class="cap"><span>FMS-15 Fig 4A-3 · Obstacle Avoidance — Helipad (backup obstacle)</span><span>${BK.on?(BK.inside?'obstacle not clear':(BK.behind?'clear · behind TDP point':`clear · max ${fmt(Math.round(BK.allow))} ft at ${fmt(bkd)} ft`)):'enter backup obstacle height and distance'}</span></div>`;
     }
     $('wrapProf').innerHTML=g+`<div class="cap"><span>FMS-15 Fig 3A-1 · OEI Completed Takeoff Profile — Helipad, with this takeoff's values (not to scale)</span><span>${ob>0?'heights include '+fmt(ob)+' ft obstacle':'heights above takeoff surface'}</span></div>`;
   }
