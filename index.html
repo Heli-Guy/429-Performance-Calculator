@@ -189,7 +189,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.82 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.83 · test build</div></header>
 <main>
 
 <div id="stick">
@@ -1094,13 +1094,15 @@ const arrangeCards=(g,r,rows)=>{ const all=[...$(g).children,...$(r).children];
   const by=k=>all.find(e=>{const q=e.querySelector('.k'); return q&&q.textContent.trim().toLowerCase().startsWith(k.toLowerCase());});
   const out=[]; rows.forEach((row,ri)=>{ if(ri===rows.length-1){const d=document.createElement('div'); d.className='rowdiv'; out.push(d);} row.forEach((k,i)=>{const e=by(k); if(e){ e.style.gridColumnStart=i===0?'1':''; out.push(e);} }); });
   all.filter(e=>!out.includes(e)).forEach(e=>out.push(e));
-  $(g).replaceChildren(...out); $(r).replaceChildren(); };
+  $(g).replaceChildren(...out); $(r).replaceChildren();
+  if($('heater').value==='on'||$('ac').value==='on') out.forEach(e=>{ const v=e.querySelector('.v'), sb=e.querySelector('.s'); if(!v) return;
+    e.classList.remove('ok','bad','warn'); v.textContent='– – – –'; if(sb) sb.textContent='heater / A/C must be OFF'; }); };
 const rocCards=()=>[
     ['2-min OEI ROC',R2T.status==='ok'?rocV(R2T.roc):rocTxt(R2T),'VTOSS 50 KIAS · FMS-15 Fig 4B-9'+(R2T.below?' · 4,600 Lbs line used':''),rocCls(R2T),'big'],
     ['30-min OEI ROC',rocTxt(R49),'VY 60 KIAS · Fig 4-9',rocCls(R49),'big']];
   const rocCol=(blk)=>rocCards().map(r=>blk?[r[0],dash,'','']:r).map(r=>`<div class="r ${r[3]}"><div class="k">${r[0]}</div><div class="v">${r[1]}</div><div class="s">${r[2]}</div></div>`).join('');
-  if(heater) msgs.unshift(['','Heater ON selected: CAT-A performance assumes heater OFF. Confirm heater OFF in the pre-takeoff check (it is shed automatically OEI).']);
-  if(acOn) msgs.push(['','Air conditioner ON: the A/C supplement gives no CAT-A correction; select A/C OFF after an engine failure (A/C supplement Section 3).']);
+  if(heater||acOn) msgs.unshift(['bad','Heater and/or air conditioner ON: CAT-A not valid. FMS-15 requires CABIN HEAT — OFF and AIR CONDITIONER — OFF for CAT-A takeoff and landing (Sections 2A-8 / 2B-8), and all CAT-A charts are for AIR COND OFF / HEATER OFF.']);
+
   const w=B.watHelipad(DATA,pa,oat,fhw);
   const t=B.tdpHelipad(DATA,pa,oat,gw,fhw,clr);
   if(t.overMaxOat) msgs.push(['bad',`OAT exceeds maximum OAT (${fmt(t.maxOat,1)} °C) for this pressure altitude.`]);
@@ -1149,7 +1151,7 @@ const rocCards=()=>[
   arrangeCards('heli','heliRoc',[['Max T/O','GW margin','TDP','Backup obstacle'],['OEI transition','Stage 1','Stage 2'],['2-min','30-min']]);
   // ---- Fig 3A-1 style profile with this takeoff's numbers ----
   {
-    const blk=windBlock||ovX, D=v=>blk?'– – –':v;
+    const blk=windBlock||ovX||heater||acOn, D=v=>blk?'– – –':v;
     const c10=v=>fmt(Math.ceil(v/10)*10)+' ft';
     const dOe=oe.valid?c10(oe.dist):(oe.offTop?'> 2,400 ft':'– – –');
     const d1=climbTxt(s1,CLB.st1), d2=pdr.valid?climbTxt(s2,s2C):'– – –';
@@ -1318,8 +1320,8 @@ const rocCards=()=>[
   // ================= CAT-A RUNWAY =================
   {
     const rm=[];
-    if(heater) rm.push(['','Heater ON selected: CAT-A performance assumes heater OFF. Confirm heater OFF in the pre-takeoff check (it is shed automatically OEI).']);
-    if(acOn) rm.push(['','Air conditioner ON: the A/C supplement gives no CAT-A correction; select A/C OFF after an engine failure (A/C supplement Section 3).']);
+    if(heater||acOn) rm.unshift(['bad','Heater and/or air conditioner ON: CAT-A not valid. FMS-15 requires CABIN HEAT — OFF and AIR CONDITIONER — OFF for CAT-A takeoff and landing (Sections 2A-8 / 2B-8), and all CAT-A charts are for AIR COND OFF / HEATER OFF.']);
+
     if(tail) rm.push(['bad','Tailwind component: CAT-A runway data not applicable.']);
     if(xw>20) rm.push(['bad','Crosswind exceeds 20 kt: CAT-A runway data not applicable.']);
     {const L0=B.oatLimits(pa); if(oat>L0.max) rm.push(['bad',`OAT above the RFM Fig 1-4 maximum (${fmt(L0.max,1)} °C at ${fmt(pa)} ft).`]);}
@@ -1340,7 +1342,7 @@ const rocCards=()=>[
     const ovR=!windBlock&&rw.valid&&!okR;
     if(ovR){ for(let i=rm.length-1;i>=0;i--) if(/^(Rejected|OEI transition distance)/.test(rm[i][1])) rm.splice(i,1);
       rm.unshift(['bad',`Gross weight ${fmt(gw)} Lbs exceeds the CAT-A runway maximum takeoff weight (${fmt(Math.floor(rMax))} Lbs): CAT-A data not valid.`]); }
-    const WB=windBlock||ovR;
+    const WB=windBlock||ovR||heater||acOn;
     $('rwy').innerHTML=[
       ['Max T/O weight',windBlock||!rw.valid?dash:fmt(Math.floor(rMax))+' Lbs',windBlock||!rw.valid?'':(rw.gw>=7500?'7,500 Lbs structural':'WAT · Fig 1B-1'),windBlock||!rw.valid?'':(okR?'ok':'bad'),'big'],
       ['GW margin',windBlock||!rw.valid?dash:(okR?'+':'')+fmt(rMax-gw)+' Lbs',windBlock||!rw.valid?'':(okR?'within WAT':'over WAT limit'),windBlock||!rw.valid?'':(okR?'ok':'bad'),''],
