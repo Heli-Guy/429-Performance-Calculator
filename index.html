@@ -77,6 +77,11 @@
   #wxbtn small{font-size:13px;font-weight:600;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.22)}
   #wxbtn.busy{opacity:.6;cursor:progress}
   #wxbtn small.g{background:#14883e}#wxbtn small.a{background:#d98a00}#wxbtn small.r{background:#c62828}
+  #windpic{grid-column:-4/-1;display:flex;align-items:center;justify-content:flex-end;gap:10px;font-size:12.5px;color:#33475b;line-height:1.3;text-align:right}
+  #windpic svg{width:66px;height:66px;flex:none}
+  #windpic b{font-size:14px;color:#1f2d3d}
+  #windpic .bad{color:#c62828;font-weight:700}
+  @media (max-width:600px){#windpic{grid-column:span 3}}
   #wxline{display:none;margin-top:8px;font-size:13px;color:#33475b;line-height:1.35}
   #wxline.on{display:block}#wxline code{font-size:12.5px;background:#f1f4f8;padding:1px 5px;border-radius:4px;word-break:break-word}
   #wxline .err{color:#c62828;font-weight:600}
@@ -137,7 +142,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.73 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.74 · test build</div></header>
 <main>
 
 <div id="stick">
@@ -152,6 +157,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
     <label class="f">Altimeter (inHg)<input id="alt" type="number" inputmode="decimal" step="0.01" value="29.92"></label>
     <label class="f">METAR station<input id="wxsta" type="text" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="Nearest"></label>
     <div class="f wxbtnwrap"><span>&nbsp;</span><button id="wxbtn" type="button"><b>Current</b><small id="wxage">METAR</small></button></div>
+    <div id="windpic" title="Relative wind"></div>
   </div>
   <div id="wxline"></div>
 </section>
@@ -920,6 +926,11 @@ const B=window.B429;
 
 // Chart calibrations (PDF points), from tick marks in BHT-429-FMS-15 Rev 7
 const lin=(a0,p0,a1,p1)=>v=>p0+(v-a0)*(p1-p0)/(a1-a0);
+// relative-wind pictogram: helicopter always nose-up, arrow rotated to the relative wind (arrow points the way the wind blows)
+const WINDPIC={"ring": "<path transform=\"matrix(1,0,0,-1,38.6958,1)\" d=\"M0 0C-20.786 0-37.696-16.951-37.696-37.787-37.696-58.623-20.786-75.574 0-75.574 20.786-75.574 37.696-58.623 37.696-37.787 37.696-16.951 20.786 0 0 0M0-76.574C-21.337-76.574-38.696-59.175-38.696-37.787-38.696-16.399-21.337 1 0 1 21.337 1 38.696-16.399 38.696-37.787 38.696-59.175 21.337-76.574 0-76.574\" />", "arrow": "<path transform=\"matrix(1,0,0,-1,0,77.5742)\" d=\"M36.512 61.145H40.729V77.573H36.512Z\" /><path transform=\"matrix(1,0,0,-1,38.625,23.082005)\" d=\"M0 0 5.879 10.241H-5.929\"  fill-rule=\"evenodd\"/>", "heli": "<path transform=\"matrix(1,0,0,-1,38.6016,55.021505)\" d=\"M0 0H.686L1.485 10.71C1.488 10.76 1.5 10.809 1.518 10.855L2.904 14.394V24.48L.889 27.372H-.205L-2.172 24.531V14.394L-.785 10.855C-.767 10.809-.755 10.759-.752 10.708ZM1.15-1H-.466C-.729-1-.947-.797-.965-.535L-1.744 10.562-3.138 14.116C-3.161 14.175-3.172 14.236-3.172 14.299V24.687C-3.172 24.789-3.141 24.889-3.083 24.973L-.877 28.157C-.784 28.292-.63 28.372-.466 28.372H1.15C1.314 28.372 1.467 28.292 1.561 28.158L3.814 24.924C3.873 24.84 3.904 24.74 3.904 24.638V14.299C3.904 14.236 3.893 14.175 3.87 14.116L2.477 10.561 1.649-.537C1.629-.798 1.412-1 1.15-1\" /><path transform=\"matrix(1,0,0,-1,35.1538,33.166006)\" d=\"M0 0H.974L-5.638 6.442-6.108 5.972ZM3.373-3.058C3.247-3.058 3.121-3.01 3.024-2.915L1.062-1H-.204C-.334-1-.46-.949-.553-.857L-7.168 5.61C-7.264 5.704-7.318 5.831-7.319 5.965-7.32 6.099-7.267 6.227-7.172 6.321L-5.996 7.498C-5.802 7.691-5.489 7.694-5.293 7.503L4.212-1.759C4.312-1.855 4.366-1.989 4.363-2.127 4.36-2.266 4.3-2.396 4.197-2.489L3.707-2.93C3.612-3.015 3.493-3.058 3.373-3.058\" /><path transform=\"matrix(1,0,0,-1,29.0464,44.2549)\" d=\"M0 0 .468-.469 7.044 5.972H6.107ZM.465-1.672C.337-1.672 .209-1.623 .111-1.525L-1.065-.35C-1.159-.255-1.212-.127-1.211 .007-1.21 .141-1.157 .268-1.061 .361L5.554 6.829C5.647 6.921 5.773 6.972 5.904 6.972H7.17L9.131 8.888C9.327 9.079 9.641 9.079 9.834 8.883L10.274 8.441C10.369 8.348 10.421 8.219 10.42 8.086 10.419 7.952 10.366 7.825 10.27 7.731L.815-1.529C.717-1.624 .591-1.672 .465-1.672\" /><path transform=\"matrix(1,0,0,-1,41.8447,38.2344)\" d=\"M0 0 6.626-6.489 7.096-6.02 .986 0ZM6.63-7.692C6.504-7.692 6.378-7.645 6.281-7.55L-3.176 1.711C-3.272 1.805-3.326 1.932-3.327 2.065-3.328 2.198-3.275 2.327-3.181 2.421L-2.741 2.862C-2.548 3.059-2.234 3.062-2.038 2.867L-.124 1H1.191C1.323 1 1.449 .948 1.542 .856L8.156-5.66C8.251-5.754 8.305-5.882 8.305-6.015 8.306-6.147 8.253-6.275 8.159-6.37L6.984-7.546C6.887-7.644 6.758-7.692 6.63-7.692\" /><path transform=\"matrix(1,0,0,-1,41.8945,33.166006)\" d=\"M0 0H.937L7.038 6.012 6.584 6.448ZM-2.437-3.058C-2.564-3.058-2.693-3.009-2.79-2.911L-3.23-2.471C-3.325-2.376-3.377-2.248-3.376-2.114-3.375-1.981-3.322-1.854-3.226-1.76L6.231 7.502C6.423 7.689 6.732 7.692 6.927 7.505L8.102 6.377C8.199 6.284 8.254 6.155 8.255 6.02 8.256 5.885 8.203 5.755 8.106 5.66L1.493-.856C1.399-.948 1.273-1 1.142-1H-.126L-2.087-2.915C-2.185-3.01-2.311-3.058-2.437-3.058\" />"};
+function windPic(rel,col,html){
+  $('windpic').innerHTML=`<div>${html}</div><svg viewBox="0 0 77.39 77.57" xmlns="http://www.w3.org/2000/svg"><g fill="#73bcb9">${WINDPIC.ring}</g><g fill="#1f2d3d">${WINDPIC.heli}</g><g fill="${col}" transform="rotate(${rel} 38.696 38.787)">${WINDPIC.arrow}</g></svg>`;
+}
 const CAL={
   wat:{img:'p13',im:[90,150,476,560],view:[96,190,467,505],X:lin(4600,146.46,7600,503.4),YP:lin(17000,228.42,-1000,531.12),YW:lin(0,547.86,30,648.84)},
   p33:{img:'p33',im:[60,60,1110,660],view:[158,262,935,411],X:lin(300,600.665,20,1064.79),Y:lin(60,519.47,-20,652.07),axisY:60},
@@ -997,7 +1008,7 @@ function calc(){
   const isa=oat-(15-2*pa/1000);
   const dash='– – – –';
 
-  $('condSum').textContent=`PA ${fmt(pa)} ft · DA ${fmt(daX)} ft · ISA ${(isa>=0?'+':'')+fmt(isa,1)} · HW×0.5 ${fmt(fhw,1)} kt`;
+  $('condSum').textContent=`PA ${fmt(pa)} ft · DA ${fmt(daX)} ft`;
   $('atmo').innerHTML=[
     ['Pressure alt',fmt(pa)+' ft',`Altimeter ${alt} inHg`],
     ['Density alt',fmt(daX)+' ft',`rule of thumb (120 ft/°C) ${fmt(da)} ft`],
@@ -1504,7 +1515,18 @@ function calc(){
     if(heater&&oat>20) hm.push(['bad','Heater ON charts only cover OAT 20 °C and colder: no hover data for these conditions.']);
     {const L0=B.oatLimits(pa); if(oat>L0.max) hm.push(['bad',`OAT above the RFM Fig 1-4 maximum (${fmt(L0.max,1)} °C at ${fmt(pa)} ft).`]);}
     const defs=[['ige','top','IGE · Takeoff power','Fig 4-5'],['ige','mcp','IGE · Max continuous','Fig 4-5'],['oge','top','OGE · Takeoff power','Fig 4-6'],['oge','mcp','OGE · Max continuous','Fig 4-6']];
-    const allow=$('harea').value;
+    // relative wind decides which wind areas can be used (RFM Fig 4-4): nose (0°) any speed → A, B, C;
+    // within ±30° up to the limit → A, B; other directions up to the limit → A only; beyond the limit off the nose → none
+    const t13=B.hoverCeiling(HOV['ige_top_off'],pa,oat,gwH), lim13=t13&&t13.above13?20:35;
+    const relW=rel>180?rel-360:rel, calmW=wspd<=0.5, noseW=Math.abs(relW)<1;
+    const windAllow=calmW||noseW?'ABC':(Math.abs(relW)<=30&&wspd<=lim13?'AB':(wspd<=lim13?'A':'none'));
+    const RK={ABC:3,AB:2,A:1,none:0}, userAllow=$('harea').value;
+    const allow=RK[windAllow]<RK[userAllow]?windAllow:userAllow;
+    const wTxt=windAllow==='none'?`<span class="bad">${fmt(Math.abs(relW))}° ${relW<0?'L':'R'} at ${fmt(wspd)} kt:<br>not permitted (> ${lim13} kt off the nose)</span>`:
+      `<b>${calmW?'calm':noseW?'on the nose':fmt(Math.abs(relW))+'° '+(relW<0?'left':'right')}${calmW?'':' · '+fmt(wspd)+' kt'}</b><br>${windAllow==='ABC'?'Areas A, B & C':windAllow==='AB'?'Areas A & B only':'Area A only'}`;
+    windPic(rel,windAllow==='none'?'#c62828':'#3a9e9a',wTxt);
+    if(windAllow==='none') hm.push(['bad',`Relative wind ${fmt(Math.abs(relW))}° at ${fmt(wspd)} kt is outside Areas A, B and C (above ${lim13} kt only permitted directly off the nose): no hover data — turn to put the wind on the nose (relative wind 0°).`]);
+    else if(RK[windAllow]<RK[userAllow]) hm.push(['',`Relative wind ${fmt(Math.abs(relW))}° at ${fmt(wspd)} kt limits hover to ${windAllow==='AB'?'Areas A and B':'Area A'} (RFM Fig 4-4).`]);
     const plusOn=$('plus').value==='yes';
     document.querySelectorAll('.plusin').forEach(e=>e.style.display=plusOn?'':'none');
     const pm1=val('pm1')||0, pm2=val('pm2')||0, comb=pm1+pm2, low=Math.min(pm1,pm2);
@@ -1513,8 +1535,8 @@ function calc(){
       $('plusInfo').innerHTML=`Combined ${fmt(comb,1)} °C → <b>${shT>=10?'+'+shT+' °C sheet':'no plus sheet (below +10)'}</b> (Fig 4-12/4-13 takeoff power) · lowest engine ${fmt(low,1)} °C → <b>${shO>=10?'+'+shO+' °C sheet':'no plus sheet'}</b> (Fig 4-14 OEI). Use the 10-point average of the most recent power assurance checks for each engine; margins are rounded down to the next multiple of 10. Max continuous power remains minimum-spec (FMS-11).`;
       if(heater) hm.push(['','Plus-engine charts are heater OFF only: heater ON uses the FMS-11 heater ON charts without plus credit.']);
     }
-    const res=defs.map(d=>{let C=HOV[`${d[0]}_${d[1]}_${heater?'on':'off'}`]; let t=heaterOk?B.hoverCeiling(C,pa,oat,gwH):{valid:false,status:'heater'};
-      if(plusOn&&!heater&&d[1]==='top'&&shT>=10){ const C2=HOV16[`${d[0]}_${shT}`], t2=B.hoverCeiling(C2,pa,oat,gwH);
+    const res=defs.map(d=>{let C=HOV[`${d[0]}_${d[1]}_${heater?'on':'off'}`]; let t=allow==='none'?{valid:false,status:'wind'}:heaterOk?B.hoverCeiling(C,pa,oat,gwH):{valid:false,status:'heater'};
+      if(allow!=='none'&&plusOn&&!heater&&d[1]==='top'&&shT>=10){ const C2=HOV16[`${d[0]}_${shT}`], t2=B.hoverCeiling(C2,pa,oat,gwH);
         if(t2.status==='noplus') t.noplus=true; else { C=C2; t=t2; t.plus=shT; } }
       if(t.valid&&acW) t.max=Math.min(7500+acW,t.gw);   // internal 7,500 Lbs max is actual weight
       if(t.valid){ const x75=B.lin2(C.xGw)(7500+acW); t.xChart=Math.min(isFinite(t.x)?t.x:Infinity,x75);
@@ -1531,7 +1553,7 @@ function calc(){
       if(ext>t.max+1){ t.ext=ext; t.extX=xl; t.extY=t11.y; t.extC=C11; t.extPlus=!!t.plus;
         if(gwH>7500+acW&&gwH<=ext+0.5) t.area=(t11.area==='C'?'C':'B'); }
     });
-    if(plusOn&&shO>=10){ const C=HOV16['oei_'+shO], t=B.hoverCeiling(C,pa,oat,gw); // OEI: A/C selected OFF, actual weight
+    if(allow!=='none'&&plusOn&&shO>=10){ const C=HOV16['oei_'+shO], t=B.hoverCeiling(C,pa,oat,gw); // OEI: A/C selected OFF, actual weight
       if(t.valid&&acW){ t.max+=acW; t.gw+=acW; }
       if(t.valid){ t.xChart=Math.min(isFinite(t.x)?t.x:Infinity,C.xR); t.xLim=t.xChart; t.chartMax=t.max; t.plus=shO; t.oei=true; t.area=null; }
       res.push({d:['oge','oei','OGE · 2-min OEI (plus)','Fig 4-14'],C,t}); }
@@ -1560,7 +1582,7 @@ function calc(){
           sub+=`<div class="ext"><b>${fmt(Math.floor(t.max-acW+0.01))} Lbs</b> internal${t.plus?' · plus +'+t.plus+' °C':''}<br>margin ${(ok?'+':'')+fmt(Math.floor(t.max+0.01)-gwH)} Lbs${t.area&&ok?` · Area ${t.area}`:''}</div>`;
           cls=okExt?'ok':'bad';
         }
-      } else sub={heater:'heater ON: 20 °C max',oatmax:'above max OAT',high:'above chart',out:'outside chart',noplus:'no plus-engine credit here (crosshatched)'}[t.status]||'outside chart';
+      } else sub={wind:'relative wind not permitted',heater:'heater ON: 20 °C max',oatmax:'above max OAT',high:'above chart',out:'outside chart',noplus:'no plus-engine credit here (crosshatched)'}[t.status]||'outside chart';
       if(t.noplus) sub+='<br>no plus credit (crosshatched) — min spec';
       return `<div class="r ${cls}"><div class="k">${d[2]}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`;}).join('');
     // wind accountability
@@ -1576,8 +1598,8 @@ function calc(){
       return `<div class="fuelrow ${w.ok?'ok':'bad'}"><span class="ic">${w.ok?'✓':'!'}</span><b>${r.d[2]} — Area ${r.t.area}</b></div>`;}).join('');
     const hi=!!(anyA&&anyA.t.above13), kt=hi?'20 kt':'35 kt', offA=allow!=='ABC';
     const tbl=`<table class="ar"><tr><th rowspan="2"></th><th colspan="2">Relative wind</th></tr><tr><th>Direction</th><th>Limit</th></tr>
-      <tr class="aA"><td class="an" rowspan="2">Area A</td><td>Unlimited</td><td>${kt}</td></tr><tr class="aA"><td>0°</td><td>Unlimited</td></tr>
-      <tr class="aB ${allow==='A'?'off':''}"><td class="an" rowspan="2">Area B</td><td>±30°</td><td>${kt}</td></tr><tr class="aB ${allow==='A'?'off':''}"><td>0°</td><td>Unlimited</td></tr>
+      <tr class="aA ${allow==='none'?'off':''}"><td class="an" rowspan="2">Area A</td><td>Unlimited</td><td>${kt}</td></tr><tr class="aA ${allow==='none'?'off':''}"><td>0°</td><td>Unlimited</td></tr>
+      <tr class="aB ${allow==='A'||allow==='none'?'off':''}"><td class="an" rowspan="2">Area B</td><td>±30°</td><td>${kt}</td></tr><tr class="aB ${allow==='A'||allow==='none'?'off':''}"><td>0°</td><td>Unlimited</td></tr>
       <tr class="aC ${offA?'off':''}"><td class="an">Area C</td><td>0°</td><td>Unlimited</td></tr></table>`;
     $('hovWind').innerHTML=`<div class="k">Wind accountability (RFM Fig 4-4 sheet ${hi?2:1}: Hd ${hi?'above':'up to'} 13,000 ft) · chart Hd ${isFinite(hd)&&anyA.t.status!=='low'?fmt(Math.round(hd/100)*100)+' ft':'below chart'} · wind ${fmt(relS)}° / ${fmt(wspd)} kt</div>`+'<div class="arwrap">'+tbl+'<div class="arlist">'+(rows||'<div class="fuelrow"><span class="why" style="margin-left:0">Area applies only where your gross weight is at or below the hover ceiling.</span></div>'+'</div></div>');
     if(res.some(r=>r.t.valid&&r.t.area&&isFinite(r.t.max)&&gwH<=Math.max(r.t.max,r.t.ext||0)+0.5&&!windTxt(r.t).ok)) hm.push(['',`Current wind (${fmt(relS)}° / ${fmt(wspd)} kt) is outside the demonstrated envelope for a flagged area unless it is directly off the nose.`]);
@@ -1664,7 +1686,7 @@ function wxLine(){
   const far=WX.dist!=null&&WX.dist>40?` <span class="err">Nearest reporting station is ${fmt(WX.dist,0)} NM away.</span>`:'';
   const wind=WX.dir?` Wind ${WX.dir==='VRB'?'variable':WX.dir+'° true'} ${WX.spd} kt${WX.gst?' gusting '+WX.gst:''} — steady speed entered; set relative wind for your heading.`:'';
   const el=WX.elevSrc==='gps'?` Elevation from device GPS (±${fmt(WX.elevAcc*3.28084,0)} ft).`:(WX.elevSrc==='stn'?` Elevation is ${WX.sta}'s field elevation — change it if you're not there.`:' <span class="err">Elevation not available from the station — check the elevation field.</span>');
-  L.innerHTML=`<b>${WX.sta}</b> ${WX.name?WX.name+' ':''}${loc}<br><code>${WX.raw}</code><br>${wind}${el}${old}${far}`;
+  L.innerHTML=`<b>${WX.sta}</b> ${WX.name?WX.name+' ':''}${loc}<br><code>${WX.raw}</code>${old||far||WX.elevSrc==null?'<br>':''}${WX.elevSrc==null?el:''}${old}${far}`;
   L.classList.add('on');
 }
 async function wxFetch(){
