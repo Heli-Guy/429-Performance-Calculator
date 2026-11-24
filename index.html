@@ -61,6 +61,7 @@
   .arlist{flex:1;min-width:260px}.arlist .fuelrow:first-child{border-top:0}
   .catwrap{display:block}.roccol{display:none}
   #heli,#rwy{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .rowdiv{grid-column:1/-1;height:14px;margin:2px -14px;background:var(--bg);box-shadow:inset 0 3px 4px -3px rgba(0,0,0,.12),inset 0 -3px 4px -3px rgba(0,0,0,.12)}
   @media (max-width:600px){#heli,#rwy{grid-template-columns:repeat(2,minmax(0,1fr))}}
   .rrow{margin-bottom:10px}.rlab{font-size:12px;font-weight:700;color:var(--mute);letter-spacing:.8px;margin:2px 0 6px}
   #rocA,#rocO{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -186,7 +187,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.79 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.80 · test build</div></header>
 <main>
 
 <div id="stick">
@@ -1089,7 +1090,7 @@ function calc(){
   // lay the CAT-A cards out in fixed rows (all one grid, so every card is the same width)
 const arrangeCards=(g,r,rows)=>{ const all=[...$(g).children,...$(r).children];
   const by=k=>all.find(e=>{const q=e.querySelector('.k'); return q&&q.textContent.trim().toLowerCase().startsWith(k.toLowerCase());});
-  const out=[]; rows.forEach(row=>row.forEach((k,i)=>{const e=by(k); if(e){ e.style.gridColumnStart=i===0?'1':''; out.push(e);} }));
+  const out=[]; rows.forEach((row,ri)=>{ if(ri===rows.length-1){const d=document.createElement('div'); d.className='rowdiv'; out.push(d);} row.forEach((k,i)=>{const e=by(k); if(e){ e.style.gridColumnStart=i===0?'1':''; out.push(e);} }); });
   all.filter(e=>!out.includes(e)).forEach(e=>out.push(e));
   $(g).replaceChildren(...out); $(r).replaceChildren(); };
 const rocCards=()=>[
