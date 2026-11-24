@@ -98,7 +98,12 @@
   .chart{position:relative;margin-top:6px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
   .chart svg{display:block;width:100%;height:auto;touch-action:manipulation}
   .chart .cap{font-size:12px;color:var(--mute);padding:6px 10px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px}
-  #cond{position:sticky;top:var(--hh,44px);z-index:4;box-shadow:0 4px 12px rgba(0,0,0,.18);padding:10px 12px}
+  #stick{position:sticky;top:var(--hh,44px);z-index:4;background:var(--bg);margin:-8px -6px 14px;padding:8px 6px 6px}
+  #stick>.card:last-child{margin-bottom:0}
+  #stick>.card{box-shadow:0 4px 12px rgba(0,0,0,.18);padding:10px 12px}
+  #stick>#cond{margin-bottom:6px}
+  #acft h2{margin-bottom:6px}
+  #acft .grid6 label.f input,#acft .grid6 label.f select{font-size:17px;padding:6px 7px}
   #cond h2{margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
   #condSum{text-transform:none;letter-spacing:0;color:var(--ink);font-weight:600}
   #cond .grid6 label.f input,#cond .grid6 label.f select{font-size:17px;padding:6px 7px}
@@ -132,9 +137,10 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.71 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.72 · test build</div></header>
 <main>
 
+<div id="stick">
 <section class="card" id="cond">
   <h2>Conditions <span id="condSum"></span></h2>
   <div id="clampNote" role="status" aria-live="polite"></div>
@@ -142,11 +148,6 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
     <label class="f">Elevation (ft)<input id="elev" type="number" inputmode="decimal" min="-2000" max="20000" value="1000"></label>
     <label class="f">Altimeter (inHg)<input id="alt" type="number" inputmode="decimal" step="0.01" value="29.92"></label>
     <label class="f">OAT (°C)<input id="oat" type="number" inputmode="decimal" min="-40" max="51.7" step="0.1" value="-10"></label>
-    <label class="f">Gross weight (Lbs)<input id="gw" type="number" inputmode="decimal" min="0" max="8000" value="6800"></label>
-    <label class="f">Fuel type<select id="fuel"><option value="JetA">Jet A / A-1</option><option value="JetB">Jet B</option></select></label>
-    <label class="f">Heater<select id="heater"><option value="off">OFF</option><option value="on">ON</option></select></label>
-  </div>
-  <div class="grid6" style="margin-top:10px">
     <label class="f">Relative wind (°)<input id="rwind" type="number" inputmode="decimal" min="0" max="359" value="0"></label>
     <label class="f">Wind speed (kt)<input id="wspd" type="number" inputmode="decimal" min="0" value="45"></label>
     <label class="f">METAR station<input id="wxsta" type="text" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="Nearest"></label>
@@ -154,6 +155,16 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   </div>
   <div id="wxline"></div>
 </section>
+<section class="card" id="acft">
+  <h2>Aircraft configuration</h2>
+  <div class="grid6">
+    <label class="f">Gross weight (Lbs)<input id="gw" type="number" inputmode="decimal" min="0" max="8000" value="6800"></label>
+    <label class="f">Fuel type<select id="fuel"><option value="JetA">Jet A / A-1</option><option value="JetB">Jet B</option></select></label>
+    <label class="f">Heater<select id="heater"><option value="off">OFF</option><option value="on">ON</option></select></label>
+    <label class="f">Air conditioner<select id="ac"><option value="off">OFF</option><option value="on">ON</option></select></label>
+  </div>
+</section>
+</div>
 
 <section class="card">
   <h2>Atmosphere &amp; wind</h2>
@@ -1005,12 +1016,14 @@ function calc(){
   if(daX>13000) msgs.push(['bad',`Density altitude ${fmt(daX)} ft exceeds the 13,000 ft Hd limit.`]);
   if(oat<-40) msgs.push(['bad','OAT below −40 °C: outside the charts.']);
   {const L0=B.oatLimits(pa); if(oat>L0.max) msgs.push(['bad',`OAT above the RFM Fig 1-4 maximum (${fmt(L0.max,1)} °C at ${fmt(pa)} ft).`]); if(pa>20000) msgs.push(['bad','Pressure altitude above 20,000 ft maximum operating altitude.']);}
-  const heater=$('heater').value==='on';
+  const heater=$('heater').value==='on', acOn=$('ac').value==='on', acW=acOn?68:0, acR=acOn?54:0; // A/C supplement 429EC-100M: −54 fpm R/C; +68 Lbs for hover
   // ---- ROC (shared with CAT-A tabs) ----
   ROCD['4-8'].heatAll=true;
   const R47=B.rocSheets(ROCD['4-7'],pa,oat,gw,heater), R48=B.rocSheets(ROCD['4-8'],pa,oat,gw,heater),
         R49=B.rocSheets(ROCD['4-9'],pa,oat,gw,false), R410=B.rocSheets(ROCD['4-10'],pa,oat,gw,false),
         R2T=B.roc2min(ROC15.vtoss,pa,oat,gw), R2Y=B.roc2min(ROC15.vy,pa,oat,gw);
+  // air conditioner ON: AEO rate of climb reduced by 54 fpm (OEI: A/C is selected OFF, no reduction)
+  if(acR) [R47,R48].forEach(r=>{ if(r.status==='ok'){ r.roc-=acR; r.ac=acR; } else if(r.status==='belowmin'&&isFinite(r.min)) r.min-=acR; });
   const rocV=v=>(v<0?'−':'')+fmt(Math.abs(Math.floor(v/5)*5))+' fpm';
   const rocTxt=r=>r.status==='ok'?(r.extrap?'≈ ':'')+rocV(r.roc):(r.status==='oatmax'?'above max OAT':(r.status==='belowmin'?(isFinite(r.min)?'< '+(r.min<0?'−':'')+fmt(Math.abs(Math.ceil(r.min/5)*5))+' fpm':'below chart'):'outside chart'));
   const rocCls=r=>r.status==='ok'?(r.roc>0?'ok':'bad'):'bad';
@@ -1019,6 +1032,7 @@ function calc(){
     ['30-min OEI ROC',rocTxt(R49),'VY 60 KIAS · Fig 4-9',rocCls(R49),'big']];
   const rocCol=(blk)=>rocCards().map(r=>blk?[r[0],dash,'','']:r).map(r=>`<div class="r ${r[3]}"><div class="k">${r[0]}</div><div class="v">${r[1]}</div><div class="s">${r[2]}</div></div>`).join('');
   if(heater) msgs.unshift(['','Heater ON selected: CAT-A performance assumes heater OFF. Confirm heater OFF in the pre-takeoff check (it is shed automatically OEI).']);
+  if(acOn) msgs.push(['','Air conditioner ON: the A/C supplement gives no CAT-A correction; select A/C OFF after an engine failure (A/C supplement Section 3).']);
   const w=B.watHelipad(DATA,pa,oat,fhw);
   const t=B.tdpHelipad(DATA,pa,oat,gw,fhw,clr);
   if(t.overMaxOat) msgs.push(['bad',`OAT exceeds maximum OAT (${fmt(t.maxOat,1)} °C) for this pressure altitude.`]);
@@ -1236,6 +1250,7 @@ function calc(){
   {
     const rm=[];
     if(heater) rm.push(['','Heater ON selected: CAT-A performance assumes heater OFF. Confirm heater OFF in the pre-takeoff check (it is shed automatically OEI).']);
+    if(acOn) rm.push(['','Air conditioner ON: the A/C supplement gives no CAT-A correction; select A/C OFF after an engine failure (A/C supplement Section 3).']);
     if(tail) rm.push(['bad','Tailwind component: CAT-A runway data not applicable.']);
     if(xw>20) rm.push(['bad','Crosswind exceeds 20 kt: CAT-A runway data not applicable.']);
     {const L0=B.oatLimits(pa); if(oat>L0.max) rm.push(['bad',`OAT above the RFM Fig 1-4 maximum (${fmt(L0.max,1)} °C at ${fmt(pa)} ft).`]);}
@@ -1342,9 +1357,10 @@ function calc(){
     if(gw<4500) rm.push(['','Gross weight below 4,500 Lbs: the 4,500 Lbs sheet is used (conservative).']);
     if(heater&&oat<=20) rm.push(['',`Heater ON: AEO rates reduced per chart notes (Fig 4-7 above 2,000 ft${pa>2000?'':' — not applied, at or below 2,000 ft'}; Fig 4-8 all altitudes). OEI charts unaffected (heater is shed OEI).`]);
     if(heater&&oat>20) rm.push(['','Heater ON above 20 °C: no reduction published; values shown are heater OFF.']);
+    if(acOn) rm.push(['','Air conditioner ON: AEO rates reduced by 54 fpm (A/C supplement 429EC-100M Section 5). OEI rates unchanged — A/C is selected OFF after an engine failure.']);
     const ovG=gw>7500+0.5;
     const card=(k,r,sub)=>`<div class="r ${ovG?'':rocCls(r)} big"><div class="k">${k}</div><div class="v">${ovG?dash:rocTxt(r)}</div><div class="s">${sub}</div></div>`;
-    const hs=r=>!ovG&&r.heat?` · heater −${fmt(r.heat)}`:'';
+    const hs=r=>(!ovG&&r.heat?` · heater −${fmt(r.heat)}`:'')+(!ovG&&r.ac?` · A/C −${r.ac}`:'');
     $('rocA').innerHTML=[
       card('Takeoff power',R47,'Fig 4-7 · 60 KIAS'+hs(R47)),
       card('Max continuous',R48,'Fig 4-8 · 60 KIAS'+hs(R48))].join('');
@@ -1481,9 +1497,11 @@ function calc(){
   }
 
   // ================= HOVER =================
+  const gwH=gw+acW; // A/C ON: enter the hover charts at GW + 68 Lbs (A/C supplement 429EC-100M Section 5)
   {
     const hm=[], relS=rel>180?rel-360:rel;
     const heaterOk=!heater||oat<=20;
+    if(acOn) hm.push(['',`Air conditioner ON: hover charts entered at GW + 68 Lbs (${fmt(gwH)} Lbs); weights shown are actual (A/C supplement 429EC-100M Section 5). OEI hover unchanged — A/C OFF after an engine failure.`]);
     if(heater&&oat>20) hm.push(['bad','Heater ON charts only cover OAT 20 °C and colder: no hover data for these conditions.']);
     {const L0=B.oatLimits(pa); if(oat>L0.max) hm.push(['bad',`OAT above the RFM Fig 1-4 maximum (${fmt(L0.max,1)} °C at ${fmt(pa)} ft).`]);}
     const defs=[['ige','top','IGE · Takeoff power','Fig 4-5'],['ige','mcp','IGE · Max continuous','Fig 4-5'],['oge','top','OGE · Takeoff power','Fig 4-6'],['oge','mcp','OGE · Max continuous','Fig 4-6']];
@@ -1496,24 +1514,26 @@ function calc(){
       $('plusInfo').innerHTML=`Combined ${fmt(comb,1)} °C → <b>${shT>=10?'+'+shT+' °C sheet':'no plus sheet (below +10)'}</b> (Fig 4-12/4-13 takeoff power) · lowest engine ${fmt(low,1)} °C → <b>${shO>=10?'+'+shO+' °C sheet':'no plus sheet'}</b> (Fig 4-14 OEI). Use the 10-point average of the most recent power assurance checks for each engine; margins are rounded down to the next multiple of 10. Max continuous power remains minimum-spec (FMS-11).`;
       if(heater) hm.push(['','Plus-engine charts are heater OFF only: heater ON uses the FMS-11 heater ON charts without plus credit.']);
     }
-    const res=defs.map(d=>{let C=HOV[`${d[0]}_${d[1]}_${heater?'on':'off'}`]; let t=heaterOk?B.hoverCeiling(C,pa,oat,gw):{valid:false,status:'heater'};
-      if(plusOn&&!heater&&d[1]==='top'&&shT>=10){ const C2=HOV16[`${d[0]}_${shT}`], t2=B.hoverCeiling(C2,pa,oat,gw);
+    const res=defs.map(d=>{let C=HOV[`${d[0]}_${d[1]}_${heater?'on':'off'}`]; let t=heaterOk?B.hoverCeiling(C,pa,oat,gwH):{valid:false,status:'heater'};
+      if(plusOn&&!heater&&d[1]==='top'&&shT>=10){ const C2=HOV16[`${d[0]}_${shT}`], t2=B.hoverCeiling(C2,pa,oat,gwH);
         if(t2.status==='noplus') t.noplus=true; else { C=C2; t=t2; t.plus=shT; } }
-      if(t.valid){ const x75=B.lin2(C.xGw)(7500); t.xChart=Math.min(isFinite(t.x)?t.x:Infinity,x75);
+      if(t.valid&&acW) t.max=Math.min(7500+acW,t.gw);   // internal 7,500 Lbs max is actual weight
+      if(t.valid){ const x75=B.lin2(C.xGw)(7500+acW); t.xChart=Math.min(isFinite(t.x)?t.x:Infinity,x75);
         t.xLim=B.hoverAreaLimit(C,t.y,t.xChart,allow); t.areaCut=allow!=='ABC'&&!(t.xLim>=t.xChart-0.01);
         t.chartMax=t.max; t.max=isFinite(t.xLim)?Math.min(t.max,B.inv2(C.xGw)(t.xLim)):NaN; }
       return {d,C,t};});
     // external load (cargo hook, FMS-3): FMS-11 charts to the 8,000 Lbs external line
     res.forEach(r=>{ const t=r.t; if(!t.valid||!isFinite(t.max)||allow==='A') return;
-      const C11=HOV[`${r.d[0]}_${r.d[1]}_${heater?'on':'off'}`], t11=t.plus?B.hoverCeiling(C11,pa,oat,gw):t;
+      const C11=HOV[`${r.d[0]}_${r.d[1]}_${heater?'on':'off'}`], t11=t.plus?B.hoverCeiling(C11,pa,oat,gwH):t;
       if(!t11.valid) return;
-      const x80=B.lin2(C11.xGw)(8000), xc=Math.min(isFinite(t11.x)?t11.x:Infinity,x80), xl=B.hoverAreaLimit(C11,t11.y,xc,allow);
+      const x80=B.lin2(C11.xGw)(8000+acW), xc=Math.min(isFinite(t11.x)?t11.x:Infinity,x80), xl=B.hoverAreaLimit(C11,t11.y,xc,allow);
       if(!isFinite(xl)) return;
-      let ext=Math.min(8000,B.inv2(C11.xGw)(xl)); if(isFinite(t11.gw)&&Math.abs(ext-t11.gw)<1) ext=Math.min(8000,t11.gw);
+      let ext=Math.min(8000+acW,B.inv2(C11.xGw)(xl)); if(isFinite(t11.gw)&&Math.abs(ext-t11.gw)<1) ext=Math.min(8000+acW,t11.gw);
       if(ext>t.max+1){ t.ext=ext; t.extX=xl; t.extY=t11.y; t.extC=C11; t.extPlus=!!t.plus;
-        if(gw>7500&&gw<=ext+0.5) t.area=(t11.area==='C'?'C':'B'); }
+        if(gwH>7500+acW&&gwH<=ext+0.5) t.area=(t11.area==='C'?'C':'B'); }
     });
-    if(plusOn&&shO>=10){ const C=HOV16['oei_'+shO], t=B.hoverCeiling(C,pa,oat,gw);
+    if(plusOn&&shO>=10){ const C=HOV16['oei_'+shO], t=B.hoverCeiling(C,pa,oat,gw); // OEI: A/C selected OFF, actual weight
+      if(t.valid&&acW){ t.max+=acW; t.gw+=acW; }
       if(t.valid){ t.xChart=Math.min(isFinite(t.x)?t.x:Infinity,C.xR); t.xLim=t.xChart; t.chartMax=t.max; t.plus=shO; t.oei=true; t.area=null; }
       res.push({d:['oge','oei','OGE · 2-min OEI (plus)','Fig 4-14'],C,t}); }
     const windTxt=(t)=>{
@@ -1526,19 +1546,19 @@ function calc(){
     $('hov').innerHTML=res.map(({d,t})=>{
       let v=dash,sub='',cls='';
       if(t.valid){
-        if(!isFinite(t.max)){ return `<div class="r bad"><div class="k">${d[2]}</div><div class="v">None</div><div class="s">no weight in Area ${allow==='A'?'A':'A or B'} at this Hd<br>chart max ${fmt(Math.floor(t.chartMax))} Lbs</div></div>`; }
-        const ok=gw<=t.max+0.5, okExt=t.ext&&gw<=t.ext+0.5;
-        v=fmt(Math.floor(t.max))+' Lbs';
-        const chart=t.areaCut?`limited to Area ${allow==='A'?'A':'A/B'} · chart ${fmt(Math.floor(t.chartMax))} Lbs`:(isFinite(t.gw)?(t.gw>7500?`chart ${fmt(Math.floor(t.gw))} Lbs · 7,500 internal max`:'hover ceiling'):`not limiting (chart ≥ ${t.plus?'7,500':'8,000'} Lbs)`);
-        sub=`${chart}<br>margin ${(ok?'+':'')+fmt(Math.floor(t.max)-gw)} Lbs`+(t.area?` · Area ${t.area}`:'');
+        if(!isFinite(t.max)){ return `<div class="r bad"><div class="k">${d[2]}</div><div class="v">None</div><div class="s">no weight in Area ${allow==='A'?'A':'A or B'} at this Hd<br>chart max ${fmt(Math.floor(t.chartMax-acW+0.01))} Lbs</div></div>`; }
+        const ok=gwH<=t.max+0.5, okExt=t.ext&&gwH<=t.ext+0.5;
+        v=fmt(Math.floor(t.max-acW+0.01))+' Lbs';
+        const chart=t.areaCut?`limited to Area ${allow==='A'?'A':'A/B'} · chart ${fmt(Math.floor(t.chartMax-acW+0.01))} Lbs`:(isFinite(t.gw)?(t.gw>7500+acW?`chart ${fmt(Math.floor(t.gw-acW+0.01))} Lbs · 7,500 internal max`:'hover ceiling'):`not limiting (chart ≥ ${t.plus?'7,500':'8,000'} Lbs)`);
+        sub=`${chart}<br>margin ${(ok?'+':'')+fmt(Math.floor(t.max+0.01)-gwH)} Lbs`+(t.area?` · Area ${t.area}`:'');
         cls=ok?'ok':'bad';
-        if(t.oei){ const ok2=gw<=t.max+0.5; sub=`${isFinite(t.gw)?'hover ceiling':'not limiting'} · +${t.plus} °C sheet<br>margin ${(ok2?'+':'')+fmt(Math.floor(t.max)-gw)} Lbs`; }
+        if(t.oei){ const ok2=gwH<=t.max+0.5; sub=`${isFinite(t.gw)?'hover ceiling':'not limiting'} · +${t.plus} °C sheet<br>margin ${(ok2?'+':'')+fmt(Math.floor(t.max+0.01)-gwH)} Lbs`; }
         else if(t.plus) sub=sub.replace('<br>',` · plus +${t.plus} °C<br>`);
         if(t.ext){
           // large figure = external (cargo hook) limit; smaller line = internal limit
-          v=fmt(Math.floor(t.ext))+' Lbs';
-          sub=`external (cargo hook)${t.extPlus?' · min-spec chart':''} · margin ${(okExt?'+':'')+fmt(Math.floor(t.ext)-gw)} Lbs · Area B wind above 7,500`;
-          sub+=`<div class="ext"><b>${fmt(Math.floor(t.max))} Lbs</b> internal${t.plus?' · plus +'+t.plus+' °C':''}<br>margin ${(ok?'+':'')+fmt(Math.floor(t.max)-gw)} Lbs${t.area&&ok?` · Area ${t.area}`:''}</div>`;
+          v=fmt(Math.floor(t.ext-acW+0.01))+' Lbs';
+          sub=`external (cargo hook)${t.extPlus?' · min-spec chart':''} · margin ${(okExt?'+':'')+fmt(Math.floor(t.ext+0.01)-gwH)} Lbs · Area B wind above 7,500`;
+          sub+=`<div class="ext"><b>${fmt(Math.floor(t.max-acW+0.01))} Lbs</b> internal${t.plus?' · plus +'+t.plus+' °C':''}<br>margin ${(ok?'+':'')+fmt(Math.floor(t.max+0.01)-gwH)} Lbs${t.area&&ok?` · Area ${t.area}`:''}</div>`;
           cls=okExt?'ok':'bad';
         }
       } else sub={heater:'heater ON: 20 °C max',oatmax:'above max OAT',high:'above chart',out:'outside chart',noplus:'no plus-engine credit here (crosshatched)'}[t.status]||'outside chart';
@@ -1550,7 +1570,7 @@ function calc(){
     const rows=res.map(r=>{
       if(!r.t.valid||r.t.oei) return '';
       const lim_=Math.max(r.t.max||0,r.t.ext||0);
-      if(!isFinite(r.t.max)||gw>lim_+0.5) return `<div class="fuelrow bad"><span class="ic">✕</span><b>${r.d[2]} — no area</b></div>`;
+      if(!isFinite(r.t.max)||gwH>lim_+0.5) return `<div class="fuelrow bad"><span class="ic">✕</span><b>${r.d[2]} — no area</b></div>`;
       if(!r.t.area) return '';
       const w=windTxt(r.t);
       const env=r.t.area==='A'?`all azimuths up to ${w.lim} kt`:(r.t.area==='B'?`within ±30° of the nose up to ${w.lim} kt`:'wind directly off the nose only');
@@ -1561,7 +1581,7 @@ function calc(){
       <tr class="aB ${allow==='A'?'off':''}"><td class="an" rowspan="2">Area B</td><td>±30°</td><td>${kt}</td></tr><tr class="aB ${allow==='A'?'off':''}"><td>0°</td><td>Unlimited</td></tr>
       <tr class="aC ${offA?'off':''}"><td class="an">Area C</td><td>0°</td><td>Unlimited</td></tr></table>`;
     $('hovWind').innerHTML=`<div class="k">Wind accountability (RFM Fig 4-4 sheet ${hi?2:1}: Hd ${hi?'above':'up to'} 13,000 ft) · chart Hd ${isFinite(hd)&&anyA.t.status!=='low'?fmt(Math.round(hd/100)*100)+' ft':'below chart'} · wind ${fmt(relS)}° / ${fmt(wspd)} kt</div>`+'<div class="arwrap">'+tbl+'<div class="arlist">'+(rows||'<div class="fuelrow"><span class="why" style="margin-left:0">Area applies only where your gross weight is at or below the hover ceiling.</span></div>'+'</div></div>');
-    if(res.some(r=>r.t.valid&&r.t.area&&isFinite(r.t.max)&&gw<=Math.max(r.t.max,r.t.ext||0)+0.5&&!windTxt(r.t).ok)) hm.push(['',`Current wind (${fmt(relS)}° / ${fmt(wspd)} kt) is outside the demonstrated envelope for a flagged area unless it is directly off the nose.`]);
+    if(res.some(r=>r.t.valid&&r.t.area&&isFinite(r.t.max)&&gwH<=Math.max(r.t.max,r.t.ext||0)+0.5&&!windTxt(r.t).ok)) hm.push(['',`Current wind (${fmt(relS)}° / ${fmt(wspd)} kt) is outside the demonstrated envelope for a flagged area unless it is directly off the nose.`]);
     $('hovMsgs').innerHTML=hm.map(m=>`<div class="msg ${m[0]}">${m[1]}</div>`).join('');
     $('wrapH4').style.display=res.length>4?'':'none';
     res.forEach(({d,C,t},i)=>{
@@ -1573,11 +1593,11 @@ function calc(){
           const xe=isFinite(t.xLim)?t.xLim:t.xChart;
           P.push({pts:isFinite(t.max)?[[t.x0,C.yBot],[t.x0,t.y],[xe,t.y],[xe,C.yBot]]:[[t.x0,C.yBot],[t.x0,t.y]],legs:true});
           M.push([t.x0,t.y,'PA = '+fmt(pa)+' ft',5]);
-          M.push([xe,C.yBot-6,isFinite(t.max)?fmt(Math.floor(t.max))+' Lbs':'',-5]);
-          if(t.ext&&!is16){ const x75=B.lin2(C.xGw)(7500);
+          M.push([xe,C.yBot-6,isFinite(t.max)?fmt(Math.floor(t.max-acW+0.01))+' Lbs':'',-5]);
+          if(t.ext&&!is16){ const x75=B.lin2(C.xGw)(7500+acW);
             P.push({pts:[[x75,t.y],[t.extX,t.y],[t.extX,C.yBot]],legs:true,dash:'4 3'});
-            M.push([t.extX,C.yBot-34,fmt(Math.floor(t.ext))+' Lbs ext.',-5]); }
-          if(gw<=Math.max(t.max,t.ext||0)&&gw>=4600) M.push([t.xPilot,t.y,'',0,'#0a6ad1']);
+            M.push([t.extX,C.yBot-34,fmt(Math.floor(t.ext-acW+0.01))+' Lbs ext.',-5]); }
+          if(gwH<=Math.max(t.max,t.ext||0)&&gwH>=4600) M.push([t.xPilot,t.y,'',0,'#0a6ad1']);
         } else if(t.valid&&t.status==='low'){
           // pressure altitude line lies below the bottom of the chart at this OAT: hover weight not limited
           P.push({pts:[[t.x0,C.yBot],[t.x0,C.yBot-28]],arrow:true});
@@ -1600,7 +1620,7 @@ function calc(){
   }</table>`;
   // keep "number Lbs" on one line: unit slightly smaller, no wrapping
   document.querySelectorAll('.r .v').forEach(e=>{ if(/ Lbs$/.test(e.innerHTML)){ e.innerHTML=e.innerHTML.replace(/ Lbs$/,'&nbsp;<span class="u">Lbs</span>'); e.classList.add('wt'); } });
-  try{localStorage.setItem('b429perf',JSON.stringify(['elev','alt','oat','gw','rwind','wspd','obst','bkh','bkd','fuel','heater','harea','plus','pm1','pm2','q1','m1','n1','q2','m2','n2','wxsta','calt','coat'].reduce((o,k)=>(o[k]=$(k).value,o),{})))}catch(e){}
+  try{localStorage.setItem('b429perf',JSON.stringify(['elev','alt','oat','gw','rwind','wspd','obst','bkh','bkd','fuel','heater','ac','harea','plus','pm1','pm2','q1','m1','n1','q2','m2','n2','wxsta','calt','coat'].reduce((o,k)=>(o[k]=$(k).value,o),{})))}catch(e){}
 }
 
 // ---------- METAR "Current" ----------
