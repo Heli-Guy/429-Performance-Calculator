@@ -111,6 +111,13 @@
   #stick>.card{box-shadow:0 4px 12px rgba(0,0,0,.18);padding:10px 12px}
   #stick>#cond{margin-bottom:6px}
   #acft h2{margin-bottom:6px}
+  div.f{display:flex;flex-direction:column;font-size:12px;color:var(--mute);gap:4px}
+  .sw{position:relative;width:110px;height:38px;border-radius:19px;border:1px solid #b9c1c8;background:linear-gradient(#eceff1,#fff);cursor:pointer;padding:0;box-shadow:inset 0 1px 3px rgba(0,0,0,.15);transition:background .2s}
+  .sw .t{position:absolute;top:0;bottom:0;right:14px;display:flex;align-items:center;font-size:17px;font-weight:800;color:#8a949c;letter-spacing:.5px}
+  .sw .k{position:absolute;top:2px;left:2px;width:32px;height:32px;border-radius:16px;background:linear-gradient(#fff,#e4e7ea);border:1px solid #aeb6bd;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s}
+  .sw.on{background:linear-gradient(#3b8cf0,#0a5bd1);border-color:#0a4aa8}
+  .sw.on .t{right:auto;left:16px;color:#fff}
+  .sw.on .k{left:74px}
   #acft .grid6 label.f input,#acft .grid6 label.f select{font-size:17px;padding:6px 7px}
   #cond h2{margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
   #condSum{text-transform:none;letter-spacing:0;color:var(--ink);font-weight:600}
@@ -155,6 +162,7 @@
     table.ar tr.off td{color:#5f6a73}
     table.tr td{border-bottom-color:#26313a}
     .btn{background:#0f2a44;border-color:#3b8be0;color:#9fcbff}
+    .sw{background:linear-gradient(#232c34,#2c363f);border-color:#46535e}.sw .t{color:#9aa8b3}.sw.on{background:linear-gradient(#3b8cf0,#0a5bd1);border-color:#0a4aa8}.sw.on .t{color:#fff}
     /* charts stay on "paper", dimmed so they don't glare at night */
     .chart{background:#dcdcdc;border-color:#33414d}.chart svg{filter:brightness(.86)}
     .chart .cap{background:#182027;color:var(--mute)}
@@ -174,7 +182,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.76 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.77 · test build</div></header>
 <main>
 
 <div id="stick">
@@ -198,8 +206,8 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   <div class="grid6">
     <label class="f">Gross weight (Lbs)<input id="gw" type="number" inputmode="decimal" min="0" max="8000" value="6800"></label>
     <label class="f">Fuel type<select id="fuel"><option value="JetA">Jet A / A-1</option><option value="JetB">Jet B</option></select></label>
-    <label class="f">Heater<select id="heater"><option value="off">OFF</option><option value="on">ON</option></select></label>
-    <label class="f">Air conditioner<select id="ac"><option value="off">OFF</option><option value="on">ON</option></select></label>
+    <div class="f">Heater<button type="button" class="sw" data-for="heater" aria-label="Heater"><span class="t">OFF</span><span class="k"></span></button><select id="heater" hidden><option value="off">OFF</option><option value="on">ON</option></select></div>
+    <div class="f">Air conditioner<button type="button" class="sw" data-for="ac" aria-label="Air conditioner"><span class="t">OFF</span><span class="k"></span></button><select id="ac" hidden><option value="off">OFF</option><option value="on">ON</option></select></div>
   </div>
 </section>
 </div>
@@ -1062,6 +1070,7 @@ function calc(){
   if(daX>13000) msgs.push(['bad',`Density altitude ${fmt(daX)} ft exceeds the 13,000 ft Hd limit.`]);
   if(oat<-40) msgs.push(['bad','OAT below −40 °C: outside the charts.']);
   {const L0=B.oatLimits(pa); if(oat>L0.max) msgs.push(['bad',`OAT above the RFM Fig 1-4 maximum (${fmt(L0.max,1)} °C at ${fmt(pa)} ft).`]); if(pa>20000) msgs.push(['bad','Pressure altitude above 20,000 ft maximum operating altitude.']);}
+  document.querySelectorAll('.sw').forEach(b=>{const on=$(b.dataset.for).value==='on'; b.classList.toggle('on',on); b.querySelector('.t').textContent=on?'ON':'OFF'; b.setAttribute('aria-pressed',on);});
   const heater=$('heater').value==='on', acOn=$('ac').value==='on', acW=acOn?68:0, acR=acOn?54:0; // A/C supplement 429EC-100M: −54 fpm R/C; +68 Lbs for hover
   // ---- ROC (shared with CAT-A tabs) ----
   ROCD['4-8'].heatAll=true;
@@ -1765,6 +1774,7 @@ async function wxFetch(){
   }finally{ b.classList.remove('busy'); }
 }
 $('wxbtn').addEventListener('click',wxFetch);
+document.querySelectorAll('.sw').forEach(b=>b.addEventListener('click',()=>{const sel=$(b.dataset.for); sel.value=sel.value==='on'?'off':'on'; sel.dispatchEvent(new Event('input',{bubbles:true}));}));
 $('wxsta').addEventListener('input',()=>{$('wxsta').value=$('wxsta').value.toUpperCase().replace(/[^A-Z0-9]/g,'');});
 WX_FIELDS.forEach(k=>$(k).addEventListener('input',()=>$(k).classList.remove('wx')));
 setInterval(()=>{wxAge(); if(WX&&$('wxline').classList.contains('on'))wxLine();},30000);
