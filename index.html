@@ -129,9 +129,18 @@
   #cond h2{margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
   #condSum{text-transform:none;letter-spacing:0;color:var(--ink);font-weight:600}
   #cond .grid6 label.f input,#cond .grid6 label.f select{font-size:17px;padding:6px 7px}
-  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
-  .tabs button{border:1px solid var(--line);background:#fff;border-radius:20px;padding:7px 14px;font-size:14px;color:var(--ink)}
-  .tabs button.on{background:var(--hdr);color:#fff;border-color:var(--hdr)}
+  /* Chrome-style tab strip: the active tab joins the card below it */
+  .tabs{--strip:#dbe3ec;display:flex;align-items:flex-end;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;gap:0;margin:0;padding:8px 14px 0;background:var(--strip);border-radius:14px 14px 0 0}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs button{position:relative;flex:none;border:0;background:transparent;border-radius:10px 10px 0 0;padding:10px 18px 11px;font-size:14px;color:#3c4a57;cursor:pointer;white-space:nowrap}
+  .tabs button:not(.on):hover{background:rgba(255,255,255,.45)}
+  .tabs button+button:not(.on){box-shadow:inset 1px 0 0 0 transparent}
+  .tabs button:not(.on)+button:not(.on)::after{content:'';position:absolute;left:0;top:11px;bottom:11px;width:1px;background:rgba(0,0,0,.18)}
+  .tabs button.on{background:var(--card);color:var(--ink);font-weight:600;z-index:1}
+  .tabs button.on::before,.tabs button.on::after{content:'';position:absolute;bottom:0;width:12px;height:12px;pointer-events:none}
+  .tabs button.on::before{left:-12px;background:radial-gradient(circle at 0 0,transparent 11.5px,var(--card) 12px)}
+  .tabs button.on::after{right:-12px;background:radial-gradient(circle at 100% 0,transparent 11.5px,var(--card) 12px)}
+  .tabs~section.card{border-top-left-radius:0;border-top-right-radius:0;margin-top:0}
   .tabs button.todo{color:#9aa5ae}
   .todo-list{font-size:14px;line-height:1.6;margin:0;padding-left:18px}
   .todo-list span{color:var(--mute);font-size:12px}
@@ -150,8 +159,11 @@
   @media (prefers-color-scheme:dark){
     :root{--bg:#0e1317;--card:#182027;--ink:#e4e9ed;--mute:#9aa8b3;--line:#33414d;--hdr:#070a0d;--ok:#52c47f;--bad:#ff6b78;--warn:#f0b44c}
     label.f input,label.f select,.seg button{background:#10171d;color:var(--ink);border-color:var(--line)}
-    .tabs button{background:#182027}
-    .tabs button.on{background:#e4e9ed;color:#0e1317;border-color:#e4e9ed}
+    .tabs{--strip:#0a0f13}
+    .tabs button{color:#9aa8b3}
+    .tabs button:not(.on):hover{background:rgba(255,255,255,.06)}
+    .tabs button:not(.on)+button:not(.on)::after{background:rgba(255,255,255,.18)}
+    .tabs button.on{color:var(--ink)}
     .r.ok{border-color:#2f6f48;background:#13251a}
     .r.bad{border-color:#7d3340;background:#2a1418}
     .r.warn{border-color:#7a5a20;background:#2a2212}.r.warn .v{color:#f0b44c}
@@ -189,7 +201,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.84 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.85 · test build</div></header>
 <main>
 
 <div id="stick">
