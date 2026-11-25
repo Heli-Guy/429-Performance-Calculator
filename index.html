@@ -201,7 +201,7 @@ window.addEventListener('load',()=>{const sp=document.getElementById('splash');c
   setTimeout(()=>{sp.classList.add('out');setTimeout(()=>sp.remove(),600);},wait);});
 </script>
 
-<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.85 · test build</div></header>
+<header><h1>B429 <span>Performance</span></h1><div class="ver">v0.86 · test build</div></header>
 <main>
 
 <div id="stick">
@@ -1159,7 +1159,7 @@ const rocCards=()=>[
     ['OEI transition',windBlock||ovX?dash:(oe.valid?fmt(Math.ceil(oe.dist/10)*10)+' ft':(oe.offTop?'> 2,400 ft':dash)),windBlock||ovX?'':`to 35 ft · Fig 4A-4 sheet ${oe.sheet}`,'','big'],
     ['Stage 1 climb',windBlock||ovX?dash:climbTxt(s1,CLB.st1),windBlock||ovX?'':'35→200 ft · '+climbSub(s1),'','big'],
     ['Stage 2 climb',windBlock||ovX||!pdr.valid?dash:climbTxt(s2,s2C),windBlock||ovX||!pdr.valid?'':'200→1000 ft · '+(pdr.power==='30min'?'30 min':'2 min')+' OEI · '+climbSub(s2),'','big']
-  ].concat(BK.on?[['Backup obstacle',BK.inside?'Not clear':'Clear',`${fmt(bkh)} ft at ${fmt(bkd)} ft · `+(BK.behind?`behind the TDP point (${fmt(BK.dT)} ft back) — not a factor`:`max ${fmt(Math.round(BK.allow))} ft allowed there`)+' · Fig 4A-3',windBlock||ovW?'':(BK.inside?'bad':'ok'),'big']]:[]).map(r=>`<div class="r ${r[3]} ${r[4]}"><div class="k">${r[0]}</div><div class="v">${r[1]}</div><div class="s">${r[2]}</div></div>`).join('');
+  ].concat(BK.on?[(windBlock||ovW||!t.valid)?['Backup obstacle',dash,'no TDP — cannot be assessed','','big']:['Backup obstacle',BK.inside?'Not clear':'Clear',`${fmt(bkh)} ft at ${fmt(bkd)} ft · `+(BK.behind?`behind the TDP point (${fmt(BK.dT)} ft back) — not a factor`:`max ${fmt(Math.round(BK.allow))} ft allowed there`)+' · Fig 4A-3',BK.inside?'bad':'ok','big']]:[]).map(r=>`<div class="r ${r[3]} ${r[4]}"><div class="k">${r[0]}</div><div class="v">${r[1]}</div><div class="s">${r[2]}</div></div>`).join('');
   $('heliRoc').innerHTML=rocCol(ovX);
   arrangeCards('heli','heliRoc',[['Max T/O','GW margin','TDP','Backup obstacle'],['OEI transition','Stage 1','Stage 2'],['2-min','30-min']]);
   // ---- Fig 3A-1 style profile with this takeoff's numbers ----
